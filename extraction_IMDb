@@ -5,7 +5,7 @@ from imdb import helpers
 ia = IMDb()
     # %%
 # get a movie and print its director(s)
-paper_tiger = ia.get_movie('10847306')
+paper_tiger = ia.get_movie('11318624')
     # %%
 for director in paper_tiger['directors']:
     print(director['name'])
@@ -33,16 +33,16 @@ keys
  'tech', 'title', 'votes', 'writer', 'writers', 'year']
 
     # %%
-#distributors,genres,imdbID,kind,language codes,original air date,plot,votes
-for director in paper_tiger['year']:
-    print(director)
+#distributors,genres,imdbID,kind,languages,original air date,plot,votes
+paper_tiger['votes']
+
     # %%
 paper_tiger['year']
     # %%
-    ia.get_movie_vote_details('10847306')
+    ia.get_movie_vote_details('11318624')
 
     # %%
-ia.get_movie_vote_details('10847306')['data']['demographics']['males']
+ia.get_movie_vote_details('10847306')['data']['demographics']
 
 
     # %%
@@ -54,123 +54,179 @@ type(a)
     # %%
 from bs4 import BeautifulSoup
 import requests
-    # %%
-url2 = 'https://www.imdb.com/search/title/?title_type=tv_special,documentary&user_rating=7.5,&num_votes=1000,&genres=comedy&languages=en&count=250&sort=release_date,desc'
-url = 'https://www.imdb.com/search/title/?title_type=tv_special&user_rating=7.5,&num_votes=1000,&genres=comedy&languages=en&count=250&sort=release_date,desc'
-html_text = requests.get(url).text
-    # %%
-print(html_text)
-    # %%
-soup = BeautifulSoup(html_text,'lxml')
-    # %%
-cards_shows = soup.find_all('div', class_ = 'lister-item-content' )
+import pandas as pd
+import time
+from imdb import IMDb
+from imdb import helpers
+# create an instance of the IMDb class
+ia = IMDb()
 
-titles = cards_shows.find('a')
-    # %%
-titles.get('href')[9:].strip('/')
-    # %%
-imdb_id = [stand_up.get('href')[9:].strip('/') for stand_up in cards_shows]
-    # %%
-imdb_id = []
-for stand_up in cards_shows:
-    href = stand_up.find('a')
-    imdb_id.append(href.get('href')[9:].strip('/'))
+def extract_imdb_id_movies():
+    url = 'https://www.imdb.com/search/title/?title_type=tv_special,documentary&user_rating=7.5,&num_votes=1000,&genres=comedy&languages=en&count=250&sort=release_date,desc'
+    html_text = requests.get(url).text
+    soup = BeautifulSoup(html_text,'lxml')
+    time.sleep(1) #For some reason we have to wait
+    cards_shows = soup.find_all('div', class_ = 'lister-item-content' )
+    imdb_id = [stand_up.find('a').get('href')[9:].strip('/') for stand_up in cards_shows]
+    return imdb_id
 
     # %%
-imdb_id
-imdb_ = [ia.get_movie(id) for id in imdb_id]
+
+    # define an empty list
+    imdb_id_to_delete = []
+
+    # open file and read the content in a list
+    with open('imdb_id_to_delete.txt', 'r') as filehandle:
+        for line in filehandle:
+            # remove linebreak which is the last character of the string
+            id = line[:-1]
+
+            # add item to the list
+            imdb_id_to_delete.append(id)
+    # %%
+
+    # define an empty list
+    imdb_id_to_add = []
+
+    # open file and read the content in a list
+    with open('imdb_id_to_add.txt', 'r') as filehandle:
+        for line in filehandle:
+            # remove linebreak which is the last character of the string
+            id = line[:-1]
+
+            # add item to the list
+            imdb_id_to_add.append(id)
+    # %%
+    raw_imdb_id = extract_imdb_id_movies()
+    clean_imdb_id = [id for id in raw_imdb_id if id not in imdb_id_to_delete ]
+    clean_imdb_id.append(id for id in imdb_id_to_add)
+    clean_imdb_id = clean_imdb_id[:len(clean_imdb_id) - 1]
+    # %%
+
+
+    #escribir imdb_id_to_delete
+    with open('imdb_id_to_delete.txt', 'w') as filehandle:
+        for listitem in imdb_id_to_delete:
+            filehandle.write('%s\n' % listitem)
+    # %%
+    #escribir imdb_id_to_add
+    with open('imdb_id_to_add.txt', 'w') as filehandle:
+        for listitem in imdb_id_to_add:
+            filehandle.write('%s\n' % listitem)
 
     # %%
-#Borrar
-imdb_id_to_delete = [
-'11620828',
-'3098812',
-'1985970',
-'2796782',
-'0583508',
-'6023444',
-'9105088',
-'1574646',
-'2227372',
-'1155413',
-'6789140',
-'0500100',
-'0500149',
-'0913356',
-'1909348',
-'0213984',
-'0433446',
-'7860890',
-'7689966',
-'6110504',
-'3917210',
-'4897822',
-'3899932',
-'4733046',
-'4217172',
-'3872778',
-'2246565',
-'3258142',
-'2359814',
-'2540072',
-'2076781',
-'1587707',
-'2375659',
-'1179947',
-'1352852',
-'1347512',
-'0815241',
-'1093842',
-'0477851',
-'0388462',
-'0382275',
-'0334405',
-'0287570',
-'0116481',
-'0109508',
-'0130529',
-'0368653',
-'0084352',
-'0073076',
-'0071143']
+    list_imdb = []
+    column_name = ['imdbID', 'imdb_movie']
+    for id in clean_imdb_id:
+        list_imdb.append([id, ia.get_movie(id)])
+        print(f'Se cargó correctamente el id: {id}')
 
-
-
-
-url = 'https://www.imdb.com/search/title/?title_type=tv_special,documentary&user_rating=7.5,&num_votes=1000,&genres=comedy&languages=en&sort=release_date,desc'
+    df_dict = pd.DataFrame(list_imdb, columns=column_name)
     # %%
-#AGREGAR
 
-imdb_id_to_add = [
-'8617844',
-'1935828',
-'2471940',
-'9657544',
-'7310906',
-'0500140',
-'2828960',
-'0251070',
-'3746820',
-'1560145',
-'1470576',
-'0408730',
-'0111562',
-'0107429',
-'10810424',
-'0425598',
-'11081044',
-'8984826',
-'8984816',
-'6787668',
-'6184894',
-'5087554',
-'11861072',
-'1815899',
-'0993779',
-'0439784',
-'0397612',
-'12087624',
-'2112999',
-'1999192',
-'0084597']
+    #escribir imdb_id_to_delete
+    with open('list_imdb.txt', 'w') as filehandle:
+        for listitem in list_imdb:
+            filehandle.write('%s\n' % listitem)
+    # %%
+    # define an empty list
+    list_imdb_temp = []
 
+    with open('list_imdb.txt', 'r') as filehandle:
+        for line in filehandle:
+            # remove linebreak which is the last character of the string
+            movie = line[:-1]
+
+            # add item to the list
+            list_imdb_temp.append(movie)
+    # %%
+#############################################
+###
+### TODO:
+### 1.  Create feature to have unique codes
+###     to the files (delete and add)
+### 2.  Function to load the delete and add
+###     and the search
+### 3.  Manejo de errores para no hacerlo manual
+### 4.  Manejo de errores no todos van a tener date on air
+### 5.  en el dataframe el imdbID siempre es con 0
+###
+#############################################
+    # %%
+
+    # %%
+list_dict_movie_detail = []
+for imdb_movie in list_imdb:
+    # distributors,genres,imdbID,kind,languages,original air date,plot,votes
+    title = imdb_movie[1]['title']
+    try:
+        distributors = imdb_movie[1]['distributors'][0]['name']
+    except:
+        distributors = None
+    genres = imdb_movie[1]['genres']
+    kind = imdb_movie[1]['kind']
+    languages = imdb_movie[1]['languages']
+    year =     imdb_movie[1]['year']
+    plot = imdb_movie[1]['plot']
+    votes = imdb_movie[1]['votes']
+    original_title = imdb_movie[1]['original title']
+    try:
+        writer = imdb_movie[1]['writer'][0]['name']
+    except:
+        writer = None
+    runtimes = imdb_movie[1]['runtimes']
+    try:
+        countries = imdb_movie[1]['countries']
+    except:
+        countries = None
+    try:
+        original_air_date = imdb_movie[1]['original air date']
+    except:
+        original_air_date = None
+    rating = imdb_movie[1]['rating']
+    try:
+        director = imdb_movie[1]['director'][0]['name']
+    except:
+        director = None
+    list_dict_movie_detail.append(dict(
+        imdbID = imdb_movie[0],
+        #imdb_movie = imdb_movie[1],
+        title = title,
+        distributors = distributors,
+        year = year,
+        plot = plot,
+        votes = votes,
+        original_title = original_title,
+        writer = writer,
+        runtimes = runtimes,
+        countries = countries,
+        original_air_date = original_air_date,
+        rating = rating,
+        director = director
+         ))
+
+    df = pd.DataFrame.from_dict(list_dict_movie_detail)
+    #https://scrapsfromtheloft.com/stand-up-comedy-scripts/
+
+    # %%
+    df.to_json("dataframe_movie.json")
+    df = pd.read_json(r'dataframe_movie.json')
+
+    df['demographic_votes'] = None
+
+    df['imdbID'].apply(lambda x: ia.get_movie_vote_details(x)['data']['demographics'])
+
+    # %%
+    lista = []
+    for i in df['imdbID']:
+        lista.append(ia.get_movie_vote_details(i)['data']['demographics'])
+        print(f'df.loc[df[(df.imdbID=={i})][\'imdbID\'].index[0],\'imdbID\'] = \'0{i}')
+    # %%
+    #
+    # #Exception
+    # while True:
+    #     try:
+    #         paper_tiger = ia.get_movie('11318624')
+    #     except:
+    #         print('Hola mundu')
+    #     print('ESO!')
