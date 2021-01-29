@@ -25,7 +25,7 @@ def extract_imdb_id_to_delete():
     imdb_id_to_delete = []
 
     # open file and read the content in a list
-    with open('imdb_id_to_delete.txt', 'r') as filehandle:
+    with open('../data/list_id/imdb_id_to_delete.txt', 'r') as filehandle:
         for line in filehandle:
             # remove linebreak which is the last character of the string
             id = line[:-1]
@@ -40,7 +40,7 @@ def extract_imdb_id_to_add():
     imdb_id_to_add = []
 
     # open file and read the content in a list
-    with open('imdb_id_to_add.txt', 'r') as filehandle:
+    with open('../data/list_id/imdb_id_to_add.txt', 'r') as filehandle:
         for line in filehandle:
             # remove linebreak which is the last character of the string
             id = line[:-1]
@@ -59,14 +59,14 @@ def clean_imdb_id_list():
 
 def insert_id_to_delete(imdb_id_to_delete: list):
     # escribir imdb_id_to_delete
-    with open('imdb_id_to_delete.txt', 'w') as filehandle:
+    with open('../data/list_id/imdb_id_to_delete.txt', 'w') as filehandle:
         for listitem in imdb_id_to_delete:
             filehandle.write('%s\n' % listitem)
 
 
 def insert_id_to_add(imdb_id_to_add: list):
     # escribir imdb_id_to_add
-    with open('imdb_id_to_add.txt', 'w') as filehandle:
+    with open('../data/list_id/imdb_id_to_add.txt', 'w') as filehandle:
         for listitem in imdb_id_to_add:
             filehandle.write('%s\n' % listitem)
 
@@ -143,7 +143,7 @@ def save_imdb_table(df_imdb):
 
 
 def load_imdb_table():
-    return pd.read_parquet('df_imdb.parquet')
+    return pd.read_parquet('../data/data_frame/df_imdb.parquet')
     # %%
     #############################################
     ###
