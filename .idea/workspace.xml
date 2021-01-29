@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="BranchesTreeState">
+    <expand>
+      <path>
+        <item name="ROOT" type="e8cecc67:BranchNodeDescriptor" />
+        <item name="LOCAL_ROOT" type="e8cecc67:BranchNodeDescriptor" />
+      </path>
+      <path>
+        <item name="ROOT" type="e8cecc67:BranchNodeDescriptor" />
+        <item name="REMOTE_ROOT" type="e8cecc67:BranchNodeDescriptor" />
+      </path>
+      <path>
+        <item name="ROOT" type="e8cecc67:BranchNodeDescriptor" />
+        <item name="REMOTE_ROOT" type="e8cecc67:BranchNodeDescriptor" />
+        <item name="GROUP_NODE:origin" type="e8cecc67:BranchNodeDescriptor" />
+      </path>
+    </expand>
+    <select />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="254e0c0c-9cae-4321-897c-5fe9f0616da1" name="Default Changelist" comment="">
+      <change afterPath="$PROJECT_DIR$/data/data_frame/raw_transcripts.parquet" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/raw_transcripts.parquet" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/imdb/extraction_IMDb.py" beforeDir="false" afterPath="$PROJECT_DIR$/imdb/extraction_IMDb.py" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="JupyterTrust" id="d29ebfca-e4ce-4e04-970b-fe62d15b3dad" />
+  <component name="ProjectId" id="1moBjqEySO25dCLpzCn3gykmSkn" />
+  <component name="ProjectLevelVcsManager" settingsEditedManually="true" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent">
+    <property name="RunOnceActivity.OpenProjectViewOnStart" value="true" />
+    <property name="WebServerToolWindowFactoryState" value="false" />
+    <property name="node.js.detected.package.eslint" value="true" />
+    <property name="node.js.path.for.package.eslint" value="project" />
+    <property name="node.js.selected.package.eslint" value="(autodetect)" />
+    <property name="settings.editor.selected.configurable" value="CellModeConfigurable" />
+  </component>
+  <component name="RecentsManager">
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="C:\Users\Andre\Github_Andres\stand_up_research\imdb" />
+      <recent name="C:\Users\Andre\Github_Andres\stand_up_research\data\data_frame" />
+      <recent name="C:\Users\Andre\Github_Andres\stand_up_research\data\list_id" />
+      <recent name="C:\Users\Andre\Github_Andres\stand_up_research\data" />
+    </key>
+  </component>
+  <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="254e0c0c-9cae-4321-897c-5fe9f0616da1" name="Default Changelist" comment="" />
+      <created>1610150201006</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1610150201006</updated>
+      <workItem from="1610150245479" duration="15659000" />
+      <workItem from="1610219384845" duration="12952000" />
+      <workItem from="1610400995183" duration="4469000" />
+      <workItem from="1611016636383" duration="18638000" />
+      <workItem from="1611114323382" duration="4564000" />
+      <workItem from="1611184983899" duration="13470000" />
+      <workItem from="1611202339861" duration="1190000" />
+      <workItem from="1611333533807" duration="29000" />
+      <workItem from="1611541260472" duration="8591000" />
+      <workItem from="1611588868854" duration="1279000" />
+      <workItem from="1611771394880" duration="2020000" />
+      <workItem from="1611882723332" duration="11847000" />
+    </task>
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State />
+          </value>
+        </entry>
+      </map>
+    </option>
+    <option name="oldMeFiltersMigrated" value="true" />
+  </component>
+  <component name="WindowStateProjectService">
+    <state x="701" y="322" key="#com.intellij.fileTypes.FileTypeChooser" timestamp="1611885644663">
+      <screen x="0" y="0" width="1920" height="1040" />
+    </state>
+    <state x="701" y="322" key="#com.intellij.fileTypes.FileTypeChooser/0.0.1920.1040/-1920.-120.1920.1040@0.0.1920.1040" timestamp="1610151234710" />
+    <state x="701" y="322" key="#com.intellij.fileTypes.FileTypeChooser/0.0.1920.1040@0.0.1920.1040" timestamp="1611885644663" />
+    <state x="461" y="165" key="SettingsEditor" timestamp="1610151290690">
+      <screen x="0" y="0" width="1920" height="1040" />
+    </state>
+    <state x="461" y="165" key="SettingsEditor/0.0.1920.1040/-1920.-120.1920.1040@0.0.1920.1040" timestamp="1610151290690" />
+    <state x="871" y="225" key="com.intellij.execution.console.ConsoleHistoryController$MyBrowseAction$1" timestamp="1611023673048">
+      <screen x="0" y="0" width="1920" height="1040" />
+    </state>
+    <state x="871" y="225" key="com.intellij.execution.console.ConsoleHistoryController$MyBrowseAction$1/0.0.1920.1040@0.0.1920.1040" timestamp="1611023673048" />
+    <state x="623" y="225" width="672" height="678" key="search.everywhere.popup" timestamp="1611021712370">
+      <screen x="0" y="0" width="1920" height="1040" />
+    </state>
+    <state x="623" y="225" width="672" height="678" key="search.everywhere.popup/0.0.1920.1040/-1920.-120.1920.1040@0.0.1920.1040" timestamp="1610403976198" />
+    <state x="623" y="225" width="672" height="678" key="search.everywhere.popup/0.0.1920.1040@0.0.1920.1040" timestamp="1611021712370" />
+  </component>
+</project>
