@@ -1,4 +1,4 @@
-# %%
+    # %%
 from bs4 import BeautifulSoup
 import requests
 import pandas as pd
@@ -142,7 +142,7 @@ def save_imdb_table(df_imdb):
     # %%
 
 
-def save_imdb_table():
+def load_imdb_table():
     return pd.read_parquet('df_imdb.parquet')
     # %%
     #############################################
@@ -161,4 +161,6 @@ def _main_():
     # %%
     save_imdb_table(df_imdb)
     # %%
-    df_test = save_imdb_table()
+    df_test = load_imdb_table()
+    # %%
+    df_test
