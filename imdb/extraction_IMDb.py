@@ -1,4 +1,4 @@
-    # %%
+# %%
 from bs4 import BeautifulSoup
 import requests
 import pandas as pd
@@ -11,7 +11,12 @@ ia = IMDb()
 
 
 def extract_imdb_id_movies():
-    url = 'https://www.imdb.com/search/title/?title_type=tv_special,documentary&user_rating=7.5,&num_votes=1000,&genres=comedy&languages=en&count=250&sort=release_date,desc'
+    """
+    From a search with the following filters type: tv_special or documentary, user rating 7.5 or more
+    number of votes 1000 or more, genres comedy and is sort for the newest release
+    """
+    url = 'https://www.imdb.com/search/title/?title_type=tv_special,documentary&user_rating=7.5,&num_votes=1000,' \
+          '&genres=comedy&languages=en&count=250&sort=release_date,desc'
     html_text = requests.get(url).text
     soup = BeautifulSoup(html_text, 'lxml')
     time.sleep(1)  # For some reason we have to wait
@@ -21,6 +26,10 @@ def extract_imdb_id_movies():
 
 
 def extract_imdb_id_to_delete():
+    """
+    Some of the imdb ids from the extract function  are from other stuffs that aren't stand up specials
+    so this is to read from a list located in /data/list_id/imdb_id_to_delete.txt
+    """
     # define an empty list
     imdb_id_to_delete = []
 
@@ -36,11 +45,15 @@ def extract_imdb_id_to_delete():
 
 
 def extract_imdb_id_to_add():
+    """
+    Some of the imdb ids  aren't in the stand up specials from the extract function
+    so this is to read from a list located in /data/list_id/imdb_id_to_delete.txt
+    """
     # define an empty list
     imdb_id_to_add = []
 
     # open file and read the content in a list
-    with open('../data/list_id/imdb_id_to_add.txt', 'r') as filehandle:
+    with open('./data/list_id/imdb_id_to_add.txt', 'r') as filehandle:
         for line in filehandle:
             # remove linebreak which is the last character of the string
             id = line[:-1]
@@ -51,6 +64,10 @@ def extract_imdb_id_to_add():
 
 
 def clean_imdb_id_list():
+    """
+    This function takes the id extractions, the added and the deleted.
+    With this returns a clean list of ids
+    """
     raw_imdb_id = extract_imdb_id_movies()
     clean_imdb_id = [id for id in raw_imdb_id if id not in extract_imdb_id_to_delete()]
     clean_imdb_id.append(id for id in extract_imdb_id_to_add())
@@ -58,20 +75,27 @@ def clean_imdb_id_list():
 
 
 def insert_id_to_delete(imdb_id_to_delete: list):
-    # escribir imdb_id_to_delete
-    with open('../data/list_id/imdb_id_to_delete.txt', 'w') as filehandle:
+    """
+    when more ids is found to delete this function insert in the txt
+    """
+    with open('./data/list_id/imdb_id_to_delete.txt', 'w') as filehandle:
         for listitem in imdb_id_to_delete:
             filehandle.write('%s\n' % listitem)
 
 
 def insert_id_to_add(imdb_id_to_add: list):
-    # escribir imdb_id_to_add
-    with open('../data/list_id/imdb_id_to_add.txt', 'w') as filehandle:
+    """
+    when more ids is found to add this function insert in the txt
+    """
+    with open('./data/list_id/imdb_id_to_add.txt', 'w') as filehandle:
         for listitem in imdb_id_to_add:
             filehandle.write('%s\n' % listitem)
 
 
 def get_imdb_info(clean_imdb_id: list):
+    """
+    This function return all the information in imdb format
+    """
     list_imdb = []
     for id in clean_imdb_id:
         list_imdb.append([id, ia.get_movie(id)])
@@ -83,6 +107,9 @@ def get_imdb_info(clean_imdb_id: list):
 
 
 def extraction_imdb_features(list_imdb):
+    """
+    with the raw information and the id the information construct the real dataframe
+    """
     list_dict_movie_detail = []
     for imdb_movie in list_imdb:
         # distributors,genres,imdbID,kind,languages,original air date,plot,votes
@@ -117,7 +144,7 @@ def extraction_imdb_features(list_imdb):
         list_dict_movie_detail.append(dict(
             imdbID=imdb_movie[0],
             # imdb_movie = imdb_movie[1],
-            title=title,
+            title=title.upper(),
             distributors=distributors,
             year=year,
             plot=plot,
@@ -138,18 +165,21 @@ def extraction_imdb_features(list_imdb):
 
 
 def save_imdb_table(df_imdb):
-    df_imdb.to_parquet('../data/data_frame/df_imdb.parquet')
+    """Save in data/data_frame/ the df in parquet format"""
+    df_imdb.to_parquet('./data/data_frame/df_imdb.parquet')
     # %%
 
 
 def load_imdb_table():
-    return pd.read_parquet('../data/data_frame/df_imdb.parquet')
+    """Loads the transcripts processed"""
+    return pd.read_parquet('./data/data_frame/df_imdb.parquet')
     # %%
     #############################################
     ###
     ### TODO:
     ### 1.  Create feature to have unique codes
     ###     to the files (delete and add)
+    ###
     #############################################
 
 
@@ -163,4 +193,8 @@ def _main_():
     # %%
     df_test = load_imdb_table()
     # %%
-    df_test
+    df_test['title'] = df_test['title'].str.upper()
+    # %%
+    df_v1 = df_test.merge(df, on='title', how='left')
+
+

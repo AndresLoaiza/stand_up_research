@@ -3,25 +3,35 @@
 from bs4 import BeautifulSoup
 import requests
 import pandas as pd
-
+import re
 
     # %%
 def extract_transcript_urls():
-    # %%
+    """
+        goes to 'https://scrapsfromtheloft.com/stand-up-comedy-scripts/' and extracts
+        all the urls of the transcripts
+    """
+
+
     url = 'https://scrapsfromtheloft.com/stand-up-comedy-scripts/'
     html_text = requests.get(url).text
     soup = BeautifulSoup(html_text, 'lxml')
     # time.sleep(1)  # For some reason we have to wait
     cards_shows = soup.find_all('div', class_='elementor-post__text')
     stand_up_list = [stand_up.find('a').get('href').strip('/') for stand_up in cards_shows]
-    # %%
+
     return stand_up_list
 
     # %%
 
 
-def extract_transcript_urls(stand_up_list):
+def extract_transcript(stand_up_list):
+    """
+        From a list of urls of stand up transcripts from https://scrapsfromtheloft.com
+        and extracts the text, the comedian and the title.
+    """
     # %%
+
     proto_df_show = []
     for stand_up in stand_up_list:
         html_text = requests.get(stand_up).text
@@ -39,9 +49,24 @@ def extract_transcript_urls(stand_up_list):
             if paragraph not in strong_text:
                 transcript = transcript + paragraph.text + '\n'
 
-        proto_df_show.append(dict(title=title, comedian=comedian, transcript=transcript))
+        proto_df_show.append(dict(title=re.sub('\s\(.*', '', title).upper(), comedian=comedian, transcript=transcript))
 
-    test = pd.DataFrame(proto_df_show)
-    # %%
     return pd.DataFrame(proto_df_show)
+    # %%
+def load_transcript_table():
+    """Loads the transcripts processed"""
+    return pd.read_parquet('./data/data_frame/raw_transcripts.parquet')
+    # %%
+def save_transcript_table(df_transcript):
+    """Save in data/data_frame/ the df in parquet format"""
+    df_transcript.to_parquet('./data/data_frame/raw_transcripts.parquet')
 
+    # %%
+
+
+def _main_():
+    # %%
+    df = load_transcript_table()
+    # %%
+    for title in df['title']:
+        print(title)
