@@ -22,13 +22,18 @@ Listas de curación manual en `data/list_id/`:
 
 ```
 stand_up_research/
-├── imdb/extraction_IMDb.py       # scraping IMDb + cinemagoer
-├── transcripts/transcript.py     # scraping de transcripts
+├── analysis/                # módulo Python reusable (notebook + dashboard)
+│   ├── __init__.py
+│   └── core.py
+├── dashboard/
+│   └── app.py               # dashboard interactivo Streamlit
 ├── notebooks/
-│   └── analysis.ipynb            # EDA + minería de texto + sentimiento + cruce IMDb
+│   └── analysis.ipynb       # análisis end-to-end con filtros
+├── imdb/extraction_IMDb.py  # scraping IMDb + cinemagoer
+├── transcripts/transcript.py  # scraping de transcripts
 ├── data/
-│   ├── list_id/                  # curaduría manual de IDs IMDb
-│   └── data_frame/               # parquets (salida de los pipelines)
+│   ├── list_id/             # curaduría manual de IDs IMDb
+│   └── data_frame/          # parquets (salida de los pipelines)
 ├── requirements.txt
 └── README.md
 ```
@@ -42,15 +47,50 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-Primera vez (descarga corpus NLTK que usa el notebook):
+Primera vez (corpus NLTK):
 
 ```bash
-python -c "import nltk; [nltk.download(p) for p in ['stopwords','punkt','punkt_tab']]"
+python -c "import ssl; ssl._create_default_https_context=ssl._create_unverified_context; import nltk; [nltk.download(p) for p in ['stopwords','punkt','punkt_tab']]"
 ```
+
+> El truco de `ssl._create_unverified_context` es por un problema común
+> de certificados en Windows. Si tu Python ya tiene certifi configurado,
+> basta con `nltk.download(...)`.
 
 ## Uso
 
-### 1. (Opcional) Re-extraer datos
+### Dashboard interactivo (recomendado)
+
+```bash
+streamlit run dashboard/app.py
+```
+
+Abre el navegador con un dashboard con sidebar de filtros (comediantes,
+año, rating, votos) y 9 pestañas:
+
+- **Overview** — métricas y distribuciones del subset.
+- **Vocabulario** — top n-gramas y wordcloud.
+- **Sentimiento** — VADER por show, por comediante, vs rating.
+- **Emociones (NRC)** — 8 emociones de Plutchik por comediante (heatmap).
+- **Tópicos (LDA)** — temas latentes + composición por show.
+- **Catchphrases** — n-gramas distintivos por comediante (TF-IDF).
+- **Clustering** — comediantes en 2D (UMAP) coloreados por k-means.
+- **Predicción rating** — Ridge sobre TF-IDF: qué palabras suben/bajan el rating.
+- **Datos** — tabla del subset con descarga CSV.
+
+Cada visualización trae una **descripción auto-generada** que se actualiza
+con el filtro (no es texto fijo: lee los resultados y los interpreta).
+
+### Notebook
+
+```bash
+jupyter notebook notebooks/analysis.ipynb
+```
+
+Mismo análisis end-to-end (35 celdas) parametrizado por filtros editables
+en una celda al principio.
+
+### (Opcional) Re-extraer datos
 
 ```bash
 python imdb/extraction_IMDb.py        # refresca df_imdb.parquet
@@ -62,34 +102,28 @@ python transcripts/transcript.py      # refresca raw_transcripts.parquet
 > `transcripts/transcript.py`. Los parquets versionados sirven como
 > snapshot si el scraping falla.
 
-### 2. Analizar
+## Catálogo de análisis (en orden de profundidad)
 
-```bash
-jupyter notebook notebooks/analysis.ipynb
-```
-
-El notebook está parametrizado por filtros (comediante, rango de años,
-rating mínimo, top-N por votos) y todas las visualizaciones se recalculan
-sobre el subset filtrado.
-
-## Qué se puede analizar
-
-Implementado en `notebooks/analysis.ipynb`:
-
-- **EDA**: distribución de longitudes, riqueza léxica, palabras/minuto.
-- **N-gramas**: top unigramas / bigramas / trigramas con stopwords filtradas.
-- **WordCloud**: global y por filtro.
-- **Sentimiento**: VADER por show + evolución intra-show (segmentado).
-- **TF-IDF**: palabras distintivas por comediante.
-- **Similaridad estilística**: matriz coseno + heatmap entre comediantes.
-- **Cadenas de Markov**: generador de frases al estilo del comediante.
-- **Cruce con IMDb**: rating vs sentimiento, vs diversidad léxica, vs longitud.
+| Análisis | Técnica | Implementación |
+|---|---|---|
+| EDA | histogramas, ranking | `analysis/core.py::load_unified` |
+| Riqueza léxica | TTR (type-token ratio) | inline |
+| N-gramas frecuentes | `CountVectorizer` | `top_ngrams` |
+| WordCloud | `wordcloud` | inline |
+| Sentimiento (polaridad) | VADER | `sentiment_compound` |
+| Emociones discretas | NRC lexicon (NRCLex) | `emotion_profile` |
+| Tópicos latentes | LDA (sklearn) | `extract_topics` |
+| Catchphrases | TF-IDF n-gramas | `catchphrases_by_comedian` |
+| Clustering estilístico | k-means + UMAP | `cluster_comedians` |
+| ¿Qué predice el rating? | Ridge interpretable | `predict_rating` |
 
 ## Limitaciones conocidas
 
 - La columna `comedian` del scraping a veces trae `"Stand-up transcripts"`
-  (etiqueta de la web, no el comediante); el notebook hace un fallback
-  parseando el título.
+  (etiqueta de la web, no el comediante); el módulo `analysis` hace un
+  fallback parseando el título.
 - Solo shows en inglés (filtro IMDb `languages=en`).
 - IMDb scraping puede romperse si IMDb cambia su HTML; preferir
   `cinemagoer` por ID cuando sea posible.
+- El modelo predictivo del rating tiene n pequeño (~130) → los coeficientes
+  son **sugerentes, no causales**.

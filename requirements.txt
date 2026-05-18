@@ -7,9 +7,18 @@ cinemagoer
 # analysis
 nltk
 scikit-learn
+scipy
 vaderSentiment
 wordcloud
 matplotlib
 seaborn
 networkx
+nrclex
+umap-learn
+# notebook
 jupyter
+nbconvert
+# dashboard
+streamlit
+plotly
+statsmodels

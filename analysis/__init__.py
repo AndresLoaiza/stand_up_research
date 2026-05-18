@@ -1,0 +1,38 @@
+"""Reusable analysis functions shared by the notebook and the Streamlit dashboard."""
+from .core import (
+    DEFAULT_STOPWORDS,
+    apply_filters,
+    catchphrases_by_comedian,
+    cluster_comedians,
+    emotion_profile,
+    extract_topics,
+    load_unified,
+    narrate_catchphrases,
+    narrate_emotions,
+    narrate_filters,
+    narrate_predictor,
+    narrate_topics,
+    predict_rating,
+    sentiment_compound,
+    tokenize,
+    top_ngrams,
+)
+
+__all__ = [
+    "DEFAULT_STOPWORDS",
+    "apply_filters",
+    "catchphrases_by_comedian",
+    "cluster_comedians",
+    "emotion_profile",
+    "extract_topics",
+    "load_unified",
+    "narrate_catchphrases",
+    "narrate_emotions",
+    "narrate_filters",
+    "narrate_predictor",
+    "narrate_topics",
+    "predict_rating",
+    "sentiment_compound",
+    "tokenize",
+    "top_ngrams",
+]
