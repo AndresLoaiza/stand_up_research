@@ -1,0 +1,15 @@
+beautifulsoup4
+lxml
+requests
+pandas
+pyarrow
+cinemagoer
+# analysis
+nltk
+scikit-learn
+vaderSentiment
+wordcloud
+matplotlib
+seaborn
+networkx
+jupyter
