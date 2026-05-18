@@ -50,24 +50,79 @@ sns.set_theme(style="whitegrid")
 @st.cache_data(show_spinner="Cargando datos...")
 def get_data() -> pd.DataFrame:
     df = load_unified()
-    df["sentiment"] = df["transcript"].map(sentiment_compound)
-    df["tokens"] = df["transcript"].map(tokenize)
-    df["unique_words"] = df["tokens"].map(lambda t: len(set(t)))
-    df["ttr"] = df["unique_words"] / df["tokens"].map(len).replace(0, np.nan)
-    df["words_per_min"] = df["word_count"] / df["runtime_min"]
+    # If df_enriched.parquet exists these columns are already present.
+    if "sentiment" not in df.columns:
+        df["sentiment"] = df["transcript"].map(sentiment_compound)
+    if "tokens" not in df.columns:
+        df["tokens"] = df["transcript"].map(tokenize)
+    if "unique_words" not in df.columns:
+        df["unique_words"] = df["tokens"].map(lambda t: len(set(t)))
+        df["ttr"] = df["unique_words"] / df["tokens"].map(len).replace(0, np.nan)
+    if "words_per_min" not in df.columns:
+        df["words_per_min"] = df["word_count"] / df["runtime_min"]
     return df
 
 
-@st.cache_data(show_spinner="Calculando emociones (NRC)...")
+@st.cache_resource(show_spinner=False)
+def load_emotion_words_table() -> pd.DataFrame:
+    """Long-form [show_idx, emotion, word, count]. Empty if precompute not run."""
+    p = PROJECT_ROOT / "data" / "data_frame" / "emotion_words.parquet"
+    if not p.exists():
+        return pd.DataFrame(columns=["show_idx", "emotion", "word", "count"])
+    return pd.read_parquet(p)
+
+
+@st.cache_resource(show_spinner=False)
+def load_topic_scores_table() -> pd.DataFrame:
+    """Long-form [show_idx, topic_id, score]. Empty if precompute not run."""
+    p = PROJECT_ROOT / "data" / "data_frame" / "topic_scores.parquet"
+    if not p.exists():
+        return pd.DataFrame(columns=["show_idx", "topic_id", "score"])
+    return pd.read_parquet(p)
+
+
+# Build a long emotion-profile DF from the enriched columns so we don't
+# have to re-run NRCLex when filtering by subset.
+def get_emotion_profile_from_df(df: pd.DataFrame) -> pd.DataFrame:
+    nrc_cols = [c for c in df.columns if c.startswith("nrc_")]
+    if not nrc_cols:
+        return pd.DataFrame()
+    long = df[["title", "comedian", "rating"] + nrc_cols].reset_index().rename(
+        columns={"index": "show_idx"}
+    )
+    out = long.melt(
+        id_vars=["show_idx", "title", "comedian", "rating"],
+        value_vars=nrc_cols, var_name="emotion", value_name="score",
+    )
+    out["emotion"] = out["emotion"].str.replace("nrc_", "", regex=False)
+    return out
+
+
+@st.cache_data(show_spinner=False)
 def cached_emotions(idx_key: tuple) -> pd.DataFrame:
+    """Use pre-computed nrc_<emotion> columns when available."""
     sub = df_all.loc[list(idx_key)]
+    if any(c.startswith("nrc_") for c in sub.columns):
+        return get_emotion_profile_from_df(sub)
     return emotion_profile(sub)
 
 
-@st.cache_data(show_spinner="Calculando palabras por emoción...")
+@st.cache_data(show_spinner=False)
 def cached_emotion_words(idx_key: tuple, top_k: int) -> pd.DataFrame:
-    sub = df_all.loc[list(idx_key)]
-    return emotion_top_words(sub, top_k=top_k)
+    """Use pre-computed emotion_words.parquet, filtered by subset."""
+    full = load_emotion_words_table()
+    if len(full):
+        sub = full[full["show_idx"].isin(list(idx_key))]
+        agg = sub.groupby(["emotion", "word"], as_index=False)["count"].sum()
+        agg["share"] = agg["count"] / agg.groupby("emotion")["count"].transform("sum")
+        # Keep top_k per emotion
+        return (
+            agg.sort_values(["emotion", "count"], ascending=[True, False])
+               .groupby("emotion", as_index=False).head(top_k)
+        )
+    # Fallback to on-the-fly computation
+    sub_df = df_all.loc[list(idx_key)]
+    return emotion_top_words(sub_df, top_k=top_k)
 
 
 @st.cache_data(show_spinner="Entrenando modelo de rating...")
@@ -416,22 +471,42 @@ y vuelve a correr.
         st.error("Falta `data/data_frame/curated_topics.json`. "
                  "Corre `python analysis/compute_curated_topics.py`.")
     else:
-        # Re-rank top shows per theme within the user's current filter
-        from analysis.compute_curated_topics import (
-            THEMES, score_show, tokenize_for_scoring,
-        )
-        theme_blocks = []
-        for theme in THEMES:
-            rows = []
-            for _, r in df.iterrows():
-                counter = tokenize_for_scoring(r["transcript"])
-                total = sum(counter.values())
-                sc = score_show(counter, theme["lexicon"], total)
-                rows.append({"title": r["title"], "comedian": r["comedian"],
-                             "year": r["year"], "rating": r["rating"],
-                             "score": sc})
-            tdf = pd.DataFrame(rows).sort_values("score", ascending=False)
-            theme_blocks.append((theme, tdf))
+        # Use pre-computed per-show topic scores (data/data_frame/topic_scores.parquet)
+        from analysis.compute_curated_topics import THEMES
+        scores_full = load_topic_scores_table()
+
+        if len(scores_full):
+            # Filter to the current subset and merge in show metadata
+            scores_sub = scores_full[scores_full["show_idx"].isin(df.index.tolist())]
+            meta = df[["title", "comedian", "year", "rating"]].reset_index().rename(
+                columns={"index": "show_idx"}
+            )
+            scored = scores_sub.merge(meta, on="show_idx", how="left")
+            theme_blocks = []
+            for theme in THEMES:
+                tdf = (
+                    scored[scored["topic_id"] == theme["id"]]
+                    .sort_values("score", ascending=False)
+                    [["title", "comedian", "year", "rating", "score"]]
+                )
+                theme_blocks.append((theme, tdf))
+        else:
+            # Fallback: on-the-fly computation (slow)
+            from analysis.compute_curated_topics import (
+                score_show, tokenize_for_scoring,
+            )
+            theme_blocks = []
+            for theme in THEMES:
+                rows = []
+                for _, r in df.iterrows():
+                    counter = tokenize_for_scoring(r["transcript"])
+                    total = sum(counter.values())
+                    sc = score_show(counter, theme["lexicon"], total)
+                    rows.append({"title": r["title"], "comedian": r["comedian"],
+                                 "year": r["year"], "rating": r["rating"],
+                                 "score": sc})
+                tdf = pd.DataFrame(rows).sort_values("score", ascending=False)
+                theme_blocks.append((theme, tdf))
 
         # Summary bar: mean score per theme in this subset
         summary = pd.DataFrame({

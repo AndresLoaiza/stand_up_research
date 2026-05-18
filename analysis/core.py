@@ -16,6 +16,7 @@ import pandas as pd
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 UNIFIED_PATH = PROJECT_ROOT / "data" / "data_frame" / "df_unified.parquet"
+ENRICHED_PATH = PROJECT_ROOT / "data" / "data_frame" / "df_enriched.parquet"
 
 TOKEN_RE = re.compile(r"[a-z]+")
 
@@ -243,8 +244,15 @@ def _canonicalize_comedians(names: pd.Series) -> dict:
     return canon
 
 
-def load_unified(path: str | Path = UNIFIED_PATH) -> pd.DataFrame:
-    """Load df_unified.parquet and add derived columns (cleaned comedian, runtime, counts)."""
+def load_unified(path: str | Path = UNIFIED_PATH, use_enriched: bool = True) -> pd.DataFrame:
+    """
+    Load df_unified.parquet and add derived columns. If
+    `data/data_frame/df_enriched.parquet` exists (produced by
+    `analysis/precompute.py`) it is loaded directly to avoid recomputing
+    sentiment, NRC, etc. on every dashboard render.
+    """
+    if use_enriched and path == UNIFIED_PATH and ENRICHED_PATH.exists():
+        return pd.read_parquet(ENRICHED_PATH).copy()
     df = pd.read_parquet(path).copy()
 
     mask_bad = (
@@ -539,9 +547,11 @@ def yearly_emotion_trends(emo_df: pd.DataFrame, df: pd.DataFrame,
 
 
 def yearly_sentiment_rating(df: pd.DataFrame, bucket: int = 5) -> pd.DataFrame:
-    """Average sentiment and rating per year-bucket."""
+    """Average sentiment and rating per year-bucket. Uses df['sentiment']
+    if already present (e.g. from df_enriched.parquet)."""
     sub = df.dropna(subset=["year"]).copy()
-    sub["sentiment"] = sub["transcript"].map(sentiment_compound)
+    if "sentiment" not in sub.columns:
+        sub["sentiment"] = sub["transcript"].map(sentiment_compound)
     sub["bucket"] = (sub["year"].astype(int) // bucket) * bucket
     return sub.groupby("bucket").agg(
         sentiment=("sentiment", "mean"),
