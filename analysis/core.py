@@ -43,6 +43,26 @@ DEFAULT_STOPWORDS = {
     "well", "one", "get", "got", "going", "go", "say", "said", "really",
     "people", "think", "thing", "things", "make", "made", "way", "would",
     "could", "still", "yes", "even", "much", "many", "guy", "guys",
+    # extra noise common in stand-up transcripts
+    "want", "wants", "wanted", "see", "seen", "saw", "looking", "look", "looks",
+    "tell", "told", "telling", "ask", "asked", "asks", "give", "gives", "gave",
+    "let", "lets", "put", "take", "takes", "took", "taken", "come", "comes", "came",
+    "back", "anything", "everything", "nothing", "something",
+    "everybody", "everyone", "nobody", "noone", "somebody", "someone",
+    "actually", "literally", "kind", "kinda", "sort", "stuff",
+    "always", "never", "ever", "anyway", "anyways",
+    "first", "second", "next", "last", "another", "old", "new", "good", "bad",
+    "big", "little", "small", "high", "low", "long", "short", "real",
+    "today", "yesterday", "tomorrow", "night", "day", "time", "times", "year",
+    "years", "minute", "minutes", "hour", "hours", "moment", "while",
+    "started", "start", "stop", "stopped", "keep", "kept", "try", "tried", "trying",
+    "feel", "felt", "feels", "feeling", "love", "hate", "called", "calls",
+    "yeah", "uh-huh", "huh", "ah", "oh", "hey", "hi", "hello", "wow", "fuck",
+    "fucking", "fucked", "shit", "damn", "ass", "bitch", "bullshit",
+    "alright", "everybody", "everyone", "nobody", "anybody", "someone",
+    "anyone", "anything", "everything", "nothing", "something",
+    "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten",
+    "hundred", "thousand", "million",
 }
 
 
@@ -173,11 +193,14 @@ def apply_filters(
     min_rating: float = 0.0,
     min_votes: int = 0,
     top_n_by_votes: int | None = None,
+    titles: list | None = None,
 ) -> pd.DataFrame:
     """Filter the unified dataframe. All params optional and orthogonal."""
     out = df.copy()
     if comedians:
         out = out[out["comedian"].isin(comedians)]
+    if titles:
+        out = out[out["title"].isin(titles)]
     if year_range:
         lo, hi = year_range
         out = out[(out["year"].between(lo, hi)) | out["year"].isna()]
@@ -246,6 +269,51 @@ def emotion_profile(df: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+def emotion_top_words(df: pd.DataFrame, top_k: int = 15) -> pd.DataFrame:
+    """
+    For each emotion, return the top-K words in the subset that triggered
+    it (NRC affect_dict maps each word to the emotions it expresses).
+    Returns a long-form DataFrame [emotion, word, count, share].
+    """
+    from nrclex import NRCLex
+    from collections import Counter
+
+    counters: dict[str, Counter] = {e: Counter() for e in EMOTIONS}
+    for _, row in df.iterrows():
+        nrc = NRCLex()
+        nrc.load_raw_text(row["transcript"] or "x")
+        # affect_dict: {word: [emotion1, emotion2, ...]} per occurrence type;
+        # raw_emotion_scores gives total counts per emotion. We re-tokenize
+        # to know which raw word contributed to each emotion.
+        words = nrc.words
+        for w in words:
+            wl = w.lower()
+            emos = nrc.affect_dict.get(wl, [])
+            for emo in emos:
+                if emo in counters:
+                    counters[emo][wl] += 1
+
+    rows = []
+    for emo, c in counters.items():
+        total = sum(c.values())
+        for w, n in c.most_common(top_k):
+            rows.append({"emotion": emo, "word": w, "count": n,
+                         "share": n / total if total else 0.0})
+    return pd.DataFrame(rows)
+
+
+def emotion_summary(emo_df: pd.DataFrame) -> pd.DataFrame:
+    """Aggregate stats per emotion across the subset."""
+    if emo_df.empty:
+        return pd.DataFrame()
+    return emo_df.groupby("emotion").agg(
+        mean_score=("score", "mean"),
+        median_score=("score", "median"),
+        max_score=("score", "max"),
+        argmax_show=("score", lambda s: emo_df.loc[s.idxmax(), "title"] if len(s) else None),
+    ).sort_values("mean_score", ascending=False)
+
+
 # ---------------------------------------------------------------------------
 # Topic modeling (LDA)
 # ---------------------------------------------------------------------------
@@ -302,17 +370,40 @@ def catchphrases_by_comedian(
     ngram_range: tuple = (2, 4),
     top_k: int = 10,
     min_df: int = 2,
+    background: pd.DataFrame | None = None,
 ) -> dict[str, pd.Series]:
     """
-    For each comedian with >=2 shows (or >=1 if subset has no repeats),
-    return the n-grams with highest TF-IDF — i.e. used often by this
-    comedian but rarely by the rest.
+    Return the n-grams with highest TF-IDF per comedian — i.e. used often
+    by this comedian but rarely by the rest.
+
+    When the subset has a single comedian, `background` (typically the
+    full unfiltered df) is used as the comparison corpus so distinctive
+    n-grams can still be computed.
     """
     from sklearn.feature_extraction.text import TfidfVectorizer
 
     by_com = df.groupby("comedian")["transcript"].apply(lambda x: " ".join(x.fillna("")))
+
+    # Single-comedian case: compare against the full background corpus.
     if len(by_com) < 2:
-        return {com: pd.Series(dtype=float) for com in by_com.index}
+        if background is None or len(background) < 2:
+            return {com: pd.Series(dtype=float) for com in by_com.index}
+        target_com = by_com.index[0]
+        bg = background[background["comedian"] != target_com]
+        if len(bg) == 0:
+            return {target_com: pd.Series(dtype=float)}
+        # Aggregate background by comedian to keep doc count reasonable
+        bg_by_com = bg.groupby("comedian")["transcript"].apply(lambda x: " ".join(x.fillna("")))
+        corpus = pd.concat([by_com, bg_by_com])
+        vec = TfidfVectorizer(
+            ngram_range=ngram_range, min_df=min_df, max_df=0.95,
+            stop_words=list(DEFAULT_STOPWORDS), sublinear_tf=True,
+            token_pattern=r"(?u)\b[a-zA-Z]{3,}\b",
+        )
+        M = vec.fit_transform(corpus)
+        vocab = vec.get_feature_names_out()
+        scores = pd.Series(M[0].toarray().ravel(), index=vocab)
+        return {target_com: scores.nlargest(top_k)}
 
     vec = TfidfVectorizer(
         ngram_range=ngram_range,

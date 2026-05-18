@@ -1,10 +1,13 @@
 """Reusable analysis functions shared by the notebook and the Streamlit dashboard."""
 from .core import (
     DEFAULT_STOPWORDS,
+    EMOTIONS,
     apply_filters,
     catchphrases_by_comedian,
     cluster_comedians,
     emotion_profile,
+    emotion_summary,
+    emotion_top_words,
     extract_topics,
     load_unified,
     narrate_catchphrases,
@@ -20,10 +23,13 @@ from .core import (
 
 __all__ = [
     "DEFAULT_STOPWORDS",
+    "EMOTIONS",
     "apply_filters",
     "catchphrases_by_comedian",
     "cluster_comedians",
     "emotion_profile",
+    "emotion_summary",
+    "emotion_top_words",
     "extract_topics",
     "load_unified",
     "narrate_catchphrases",
