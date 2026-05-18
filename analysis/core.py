@@ -69,6 +69,79 @@ DEFAULT_STOPWORDS = {
 # ---------------------------------------------------------------------------
 # Data loading
 # ---------------------------------------------------------------------------
+# Audience-reaction markers: bracketed/parenthesized stage directions
+# that aren't spoken by the comedian. Used both to clean text for analysis
+# and to mine the n-grams that precede them (laughter triggers).
+LAUGHTER_KEYWORDS = (
+    "laughter", "laughs", "laughing", "chuckles", "chuckling", "giggles",
+    "guffaws", "snickers",
+)
+APPLAUSE_KEYWORDS = (
+    "applause", "cheers", "cheering", "clapping", "whistling",
+)
+_REACTION_INNER = "|".join(LAUGHTER_KEYWORDS + APPLAUSE_KEYWORDS)
+REACTION_RE = re.compile(
+    r"[\[\(](?:[^\]\)\n]{0,40}(?:" + _REACTION_INNER + r")[^\]\)\n]{0,40})[\]\)]",
+    re.IGNORECASE,
+)
+LAUGHTER_RE = re.compile(
+    r"[\[\(][^\]\)\n]{0,40}(?:" + "|".join(LAUGHTER_KEYWORDS) + r")[^\]\)\n]{0,40}[\]\)]",
+    re.IGNORECASE,
+)
+APPLAUSE_RE = re.compile(
+    r"[\[\(][^\]\)\n]{0,40}(?:" + "|".join(APPLAUSE_KEYWORDS) + r")[^\]\)\n]{0,40}[\]\)]",
+    re.IGNORECASE,
+)
+# Any bracketed stage direction (we strip these for analysis too)
+_ANY_STAGE_RE = re.compile(r"[\[\(][^\]\)\n]{0,60}[\]\)]")
+
+# Common English contractions. Expanded so the tokenizer doesn't split
+# "don't" into "don" + "t" and trigger spurious NRC matches for "don".
+_CONTRACTIONS = {
+    r"\bdon't\b": "do not", r"\bdoesn't\b": "does not", r"\bdidn't\b": "did not",
+    r"\bcan't\b": "cannot", r"\bcouldn't\b": "could not",
+    r"\bshouldn't\b": "should not", r"\bwouldn't\b": "would not",
+    r"\bwon't\b": "will not", r"\bisn't\b": "is not", r"\baren't\b": "are not",
+    r"\bwasn't\b": "was not", r"\bweren't\b": "were not",
+    r"\bhasn't\b": "has not", r"\bhaven't\b": "have not",
+    r"\bhadn't\b": "had not", r"\bmustn't\b": "must not",
+    r"\bain't\b": "is not",
+    r"\bi'm\b": "i am", r"\bi've\b": "i have", r"\bi'd\b": "i would",
+    r"\bi'll\b": "i will",
+    r"\byou're\b": "you are", r"\byou've\b": "you have",
+    r"\byou'll\b": "you will", r"\byou'd\b": "you would",
+    r"\bhe's\b": "he is", r"\bshe's\b": "she is", r"\bit's\b": "it is",
+    r"\bwe're\b": "we are", r"\bwe've\b": "we have",
+    r"\bwe'll\b": "we will", r"\bwe'd\b": "we would",
+    r"\bthey're\b": "they are", r"\bthey've\b": "they have",
+    r"\bthey'll\b": "they will", r"\bthey'd\b": "they would",
+    r"\bthat's\b": "that is", r"\bthere's\b": "there is",
+    r"\bwhat's\b": "what is", r"\bwhere's\b": "where is",
+    r"\bwho's\b": "who is", r"\bhow's\b": "how is",
+    r"\blet's\b": "let us",
+    r"\bgonna\b": "going to", r"\bwanna\b": "want to", r"\bgotta\b": "got to",
+}
+_CONTRACTION_PATTERNS = [(re.compile(k, re.IGNORECASE), v) for k, v in _CONTRACTIONS.items()]
+
+
+def clean_for_analysis(text: str) -> str:
+    """
+    Return a cleaned version of a transcript suitable for NLP analysis:
+    - Strips audience-reaction markers ([laughter], (applause), etc).
+    - Strips any other bracketed stage direction ([man], [music]).
+    - Expands common contractions so the tokenizer doesn't produce
+      bogus tokens like "don" from "don't".
+    """
+    if not isinstance(text, str):
+        return ""
+    s = _ANY_STAGE_RE.sub(" ", text)
+    for pat, repl in _CONTRACTION_PATTERNS:
+        s = pat.sub(repl, s)
+    # Music note marks used in lyric transcripts (e.g. Bo Burnham: Inside)
+    s = s.replace("♪", " ")
+    return re.sub(r"\s+", " ", s).strip()
+
+
 _LIVE_AT_RE = re.compile(r"\s+(live|on|at)\s+.*$", re.IGNORECASE)
 _TRAIL_YEAR_RE = re.compile(r"\s+\d{4}\s*$")
 _EVENING_WITH_RE = re.compile(r"^an\s+evening\s+with\s+", re.IGNORECASE)
@@ -181,7 +254,8 @@ def load_unified(path: str | Path = UNIFIED_PATH) -> pd.DataFrame:
     df["year"] = pd.to_numeric(df["year"], errors="coerce")
     df["rating"] = pd.to_numeric(df["rating"], errors="coerce")
     df["votes"] = pd.to_numeric(df["votes"], errors="coerce")
-    df["transcript"] = df["transcript"].fillna("")
+    df["transcript_raw"] = df["transcript"].fillna("")
+    df["transcript"] = df["transcript_raw"].map(clean_for_analysis)
     df["word_count"] = df["transcript"].str.split().str.len()
     return df
 
@@ -300,6 +374,150 @@ def emotion_top_words(df: pd.DataFrame, top_k: int = 15) -> pd.DataFrame:
             rows.append({"emotion": emo, "word": w, "count": n,
                          "share": n / total if total else 0.0})
     return pd.DataFrame(rows)
+
+
+def laughter_triggers(
+    df: pd.DataFrame,
+    kind: str = "laughter",
+    n_words: int = 6,
+    top_k: int = 25,
+    ngram_min: int = 2,
+    ngram_max: int = 4,
+) -> dict:
+    """
+    Find what the comedian was saying *just before* the audience laughs or
+    applauds. Uses the raw transcript (with reaction markers preserved).
+
+    Args:
+        kind: "laughter", "applause", or "both".
+        n_words: how many tokens before each marker to consider.
+        top_k: how many of the most frequent windows / n-grams to keep.
+        ngram_min/max: n-gram range for the trigger phrase ranking.
+
+    Returns dict with:
+        - "total_markers": int, count of markers in the subset.
+        - "windows": list[str], the raw n-word snippets before each marker.
+        - "top_ngrams": Series, top frequent n-gram triggers (with
+          stopwords filtered).
+    """
+    from sklearn.feature_extraction.text import CountVectorizer
+
+    if kind == "laughter":
+        rx = LAUGHTER_RE
+    elif kind == "applause":
+        rx = APPLAUSE_RE
+    else:
+        rx = REACTION_RE
+
+    src = df["transcript_raw"] if "transcript_raw" in df.columns else df["transcript"]
+
+    windows = []
+    for text in src.fillna(""):
+        # Tokenize ignoring stage directions
+        for m in rx.finditer(text):
+            before = text[:m.start()]
+            # Strip other stage directions inside the window so we get spoken words
+            before_clean = _ANY_STAGE_RE.sub(" ", before)
+            words = re.findall(r"[A-Za-z']+", before_clean)
+            if len(words) >= 2:
+                window = " ".join(words[-n_words:]).lower()
+                windows.append(window)
+
+    result = {
+        "total_markers": len(windows),
+        "windows": windows[:top_k * 3],  # keep some for display
+        "top_ngrams": pd.Series(dtype=float),
+        "top_last_words": pd.Series(dtype=float),
+    }
+    if not windows:
+        return result
+
+    # Top n-grams across all windows
+    vec = CountVectorizer(
+        ngram_range=(ngram_min, ngram_max),
+        stop_words=list(DEFAULT_STOPWORDS),
+        min_df=2,
+        token_pattern=r"(?u)\b[a-zA-Z]{3,}\b",
+    )
+    try:
+        M = vec.fit_transform(windows)
+        sums = M.sum(axis=0).A1
+        ng = pd.Series(sums, index=vec.get_feature_names_out()).nlargest(top_k)
+        result["top_ngrams"] = ng
+    except ValueError:
+        pass
+
+    # Last word before each laugh — the most "trigger-y" single token
+    last_words = []
+    for w in windows:
+        toks = [t for t in w.split() if t not in DEFAULT_STOPWORDS and len(t) >= 3]
+        if toks:
+            last_words.append(toks[-1])
+    if last_words:
+        result["top_last_words"] = pd.Series(last_words).value_counts().head(top_k)
+    return result
+
+
+def yearly_word_trends(
+    df: pd.DataFrame,
+    words: list[str] | None = None,
+    bucket: int = 5,
+    top_k: int = 10,
+) -> pd.DataFrame:
+    """
+    For a list of words (or, if None, the top-K most common words in the
+    full subset), compute their share per year-bucket (default 5 years).
+    Returns wide DataFrame [bucket, word1, word2, ...] with relative
+    frequencies (per 1000 tokens) per bucket.
+    """
+    sub = df.dropna(subset=["year"]).copy()
+    if sub.empty:
+        return pd.DataFrame()
+    sub["bucket"] = (sub["year"].astype(int) // bucket) * bucket
+    if words is None:
+        # Use top-K most-common tokens across the entire subset
+        all_tokens = []
+        for t in sub["transcript"].fillna(""):
+            all_tokens.extend(tokenize(t))
+        words = [w for w, _ in pd.Series(all_tokens).value_counts().head(top_k).items()]
+
+    rows = []
+    for b, group in sub.groupby("bucket"):
+        bag = []
+        for t in group["transcript"].fillna(""):
+            bag.extend(tokenize(t))
+        total = max(len(bag), 1)
+        counts = pd.Series(bag).value_counts()
+        row = {"bucket": int(b), "_total_tokens": total, "_shows": len(group)}
+        for w in words:
+            row[w] = 1000 * counts.get(w, 0) / total
+        rows.append(row)
+    out = pd.DataFrame(rows).set_index("bucket").sort_index()
+    return out
+
+
+def yearly_emotion_trends(emo_df: pd.DataFrame, df: pd.DataFrame,
+                          bucket: int = 5) -> pd.DataFrame:
+    """Average emotion score per year-bucket. Returns wide df [bucket, emotion...]."""
+    merged = emo_df.merge(
+        df[["title", "year"]].drop_duplicates("title"),
+        on="title", how="left",
+    ).dropna(subset=["year"])
+    merged["bucket"] = (merged["year"].astype(int) // bucket) * bucket
+    out = merged.groupby(["bucket", "emotion"])["score"].mean().unstack()
+    return out.sort_index()
+
+
+def yearly_sentiment_rating(df: pd.DataFrame, bucket: int = 5) -> pd.DataFrame:
+    """Average sentiment and rating per year-bucket."""
+    sub = df.dropna(subset=["year"]).copy()
+    sub["sentiment"] = sub["transcript"].map(sentiment_compound)
+    sub["bucket"] = (sub["year"].astype(int) // bucket) * bucket
+    return sub.groupby("bucket").agg(
+        sentiment=("sentiment", "mean"),
+        rating=("rating", "mean"),
+        n_shows=("title", "count"),
+    ).sort_index()
 
 
 def emotion_summary(emo_df: pd.DataFrame) -> pd.DataFrame:

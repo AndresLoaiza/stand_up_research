@@ -29,6 +29,7 @@ from analysis import (
     emotion_summary,
     emotion_top_words,
     extract_topics,
+    laughter_triggers,
     load_unified,
     narrate_catchphrases,
     narrate_emotions,
@@ -39,6 +40,9 @@ from analysis import (
     sentiment_compound,
     tokenize,
     top_ngrams,
+    yearly_emotion_trends,
+    yearly_sentiment_rating,
+    yearly_word_trends,
 )
 
 st.set_page_config(page_title="Stand-up Text Mining", layout="wide", page_icon="🎤")
@@ -180,6 +184,8 @@ tabs = st.tabs([
     "🗣️ Catchphrases",
     "🔗 Clustering",
     "⭐ Predicción rating",
+    "📅 Por año",
+    "🎯 Triggers de risa",
     "📋 Datos",
 ])
 
@@ -452,18 +458,22 @@ contra el subset visible.
     cp = cached_catchphrases(idx_key, lo, hi, top_k)
     st.markdown(narrate_catchphrases(cp, top_n=5))
 
-    if len(cp) >= 2:
-        com_choice = st.selectbox(
-            "Ver detalle de un comediante",
-            sorted([c for c, s in cp.items() if len(s)]),
-        )
+    candidates = sorted([c for c, s in cp.items() if len(s)])
+    if candidates:
+        com_choice = st.selectbox("Ver detalle de un comediante", candidates)
         s = cp[com_choice]
         fig = px.bar(s.sort_values(), orientation="h",
                      title=f"Catchphrases de {com_choice}")
         fig.update_layout(showlegend=False)
         st.plotly_chart(fig, use_container_width=True)
+        if len(cp) == 1:
+            st.caption(
+                "Solo hay un comediante en el subset. Las frases mostradas "
+                "son distintivas de él **comparadas con el corpus completo** "
+                "(no solo el subset visible)."
+            )
     else:
-        st.info("Necesitas al menos 2 comediantes en el subset.")
+        st.info("Sin catchphrases detectables en este subset.")
 
 # === Clustering =========================================================
 with tabs[6]:
@@ -496,23 +506,65 @@ combinados. Dos pasos:
 - Detectar "escuelas" estilísticas dentro del subset filtrado.
 """)
     k = st.slider("Número de clusters (k-means)", 2, 10, 5)
-    idx_key = tuple(df.index.tolist())
+
+    # If the filtered subset has <3 comedians, fall back to the full corpus
+    # but highlight the comedians the user selected.
+    if df["comedian"].nunique() < 3:
+        idx_key = tuple(df_all.index.tolist())
+        highlighted = set(df["comedian"].unique())
+        st.info(
+            f"Subset con solo {df['comedian'].nunique()} comediante(s). "
+            f"Mostrando el mapa estilístico **del corpus completo** con "
+            f"{', '.join(highlighted)} resaltado(s)."
+        )
+    else:
+        idx_key = tuple(df.index.tolist())
+        highlighted = set()
+
     clus = cached_clusters(idx_key, k)
     if len(clus) == 0:
         st.info("Subset muy pequeño para clustering.")
     else:
-        st.markdown(
-            f"**{len(clus)} comediantes** proyectados a 2D con UMAP. "
-            f"Tamaño del punto ∝ número de shows. Colores = clusters de k-means sobre TF-IDF."
-        )
-        fig = px.scatter(
-            clus, x="x", y="y", color=clus["cluster"].astype(str),
-            size="n_shows", hover_name="comedian",
-            labels={"color": "Cluster"}, title="Mapa estilístico de comediantes",
-            height=600,
-        )
+        if highlighted:
+            clus = clus.copy()
+            clus["highlight"] = clus["comedian"].isin(highlighted)
+            fig = px.scatter(
+                clus, x="x", y="y", color=clus["cluster"].astype(str),
+                size="n_shows", hover_name="comedian",
+                symbol="highlight", symbol_map={True: "star", False: "circle"},
+                labels={"color": "Cluster", "symbol": "Resaltado"},
+                title="Mapa estilístico — corpus completo (★ = resaltado)",
+                height=600,
+            )
+        else:
+            st.markdown(
+                f"**{len(clus)} comediantes** proyectados a 2D con UMAP. "
+                f"Tamaño del punto ∝ número de shows. Colores = clusters de k-means."
+            )
+            fig = px.scatter(
+                clus, x="x", y="y", color=clus["cluster"].astype(str),
+                size="n_shows", hover_name="comedian",
+                labels={"color": "Cluster"},
+                title="Mapa estilístico de comediantes",
+                height=600,
+            )
         fig.update_traces(textposition="top center", marker=dict(opacity=0.75))
         st.plotly_chart(fig, use_container_width=True)
+
+        # If a comedian was highlighted, also show their nearest neighbors
+        if highlighted:
+            st.subheader("Comediantes más cercanos a los resaltados")
+            from scipy.spatial.distance import cdist
+            import numpy as np
+            coords = clus[["x", "y"]].values
+            for com in highlighted:
+                if com not in clus["comedian"].values:
+                    continue
+                i = clus.index[clus["comedian"] == com][0]
+                d = cdist([coords[i]], coords).ravel()
+                order = np.argsort(d)[1:8]  # closest 7
+                neighbors = clus.iloc[order]["comedian"].tolist()
+                st.markdown(f"**{com}**: {' · '.join(neighbors)}")
 
         st.subheader("Comediantes por cluster")
         for c in sorted(clus["cluster"].unique()):
@@ -584,8 +636,144 @@ recibir mejor o peor rating en IMDb?
             "significa que el modelo no generaliza — úsalo como exploratorio."
         )
 
-# === Datos ==============================================================
+# === Por año ============================================================
 with tabs[8]:
+    st.subheader("Evolución temporal")
+    with st.expander("📖 ¿Qué muestra esta pestaña?"):
+        st.markdown("""
+Cómo cambia el subset filtrado a través del tiempo: qué palabras se usan
+más en cada época, cómo evolucionan las emociones y el sentimiento, y
+cómo se compara con el rating IMDb. Los años se agrupan en **buckets**
+(por defecto de 5 años) para suavizar el ruido con pocas observaciones
+por año.
+""")
+    bucket = st.slider("Tamaño del bucket (años)", 1, 10, 5)
+
+    yr_sent = yearly_sentiment_rating(df, bucket=bucket)
+    if len(yr_sent) == 0:
+        st.info("No hay años suficientes en el subset.")
+    else:
+        # Sentimiento + rating + N shows
+        st.markdown("#### Sentimiento, rating y volumen por bucket")
+        col1, col2 = st.columns(2)
+        with col1:
+            fig = px.line(yr_sent.reset_index(), x="bucket", y="sentiment",
+                          markers=True, title="Sentimiento promedio (VADER) por bucket")
+            fig.add_hline(y=0, line_dash="dash", line_color="red", opacity=0.4)
+            st.plotly_chart(fig, use_container_width=True)
+        with col2:
+            fig = px.line(yr_sent.reset_index().dropna(subset=["rating"]),
+                          x="bucket", y="rating", markers=True,
+                          title="Rating IMDb promedio por bucket")
+            st.plotly_chart(fig, use_container_width=True)
+        st.dataframe(yr_sent.round(3), use_container_width=True)
+
+        # Palabras top por época
+        st.markdown("#### Evolución de palabras")
+        st.caption("Selecciona palabras a seguir, o deja vacío para usar las top del subset completo.")
+        custom_words_input = st.text_input(
+            "Palabras (separadas por coma)", value="",
+            placeholder="ej: trump, marriage, internet, twitter",
+        )
+        custom_words = [w.strip().lower() for w in custom_words_input.split(",") if w.strip()] or None
+        top_n_auto = st.slider("Si no hay lista, top N palabras del subset", 5, 20, 8,
+                               key="ywt_topn")
+        ywt = yearly_word_trends(df, words=custom_words, bucket=bucket, top_k=top_n_auto)
+        if len(ywt):
+            ywt_plot = ywt.drop(columns=["_total_tokens", "_shows"], errors="ignore")
+            long = ywt_plot.reset_index().melt(id_vars="bucket", var_name="word", value_name="per_1000")
+            fig = px.line(long, x="bucket", y="per_1000", color="word", markers=True,
+                          title="Frecuencia relativa por bucket (por 1000 tokens)")
+            st.plotly_chart(fig, use_container_width=True)
+            st.dataframe(ywt.round(2), use_container_width=True)
+
+        # Emociones por época
+        st.markdown("#### Evolución de las emociones (NRC)")
+        try:
+            emo_y = cached_emotions(tuple(df.index.tolist()))
+            yet = yearly_emotion_trends(emo_y, df, bucket=bucket)
+            if len(yet):
+                long = yet.reset_index().melt(id_vars="bucket", var_name="emotion", value_name="score")
+                fig = px.area(long, x="bucket", y="score", color="emotion",
+                              title="Mix emocional promedio por bucket (apilado)")
+                st.plotly_chart(fig, use_container_width=True)
+                # Heatmap alternativo
+                fig = px.imshow(yet.T, aspect="auto", color_continuous_scale="RdYlBu_r",
+                                title="Heatmap emoción × bucket",
+                                labels=dict(x="Bucket de año", y="Emoción", color="Score"))
+                st.plotly_chart(fig, use_container_width=True)
+        except Exception as e:
+            st.warning(f"No pude calcular emociones por año: {e}")
+
+
+# === Triggers de risa ===================================================
+with tabs[9]:
+    st.subheader("¿Qué hace reír al público?")
+    with st.expander("📖 ¿Cómo se calculan los triggers?"):
+        st.markdown("""
+Los transcripts incluyen marcadores como `[laughter]`, `[applause]`,
+`[crowd laughs]`. Esta pestaña extrae las **N palabras justo antes**
+de cada marcador y busca patrones:
+
+- **Top n-gramas trigger**: frases (2–4 palabras) que más
+  frecuentemente preceden a una reacción del público.
+- **Última palabra antes de la reacción**: la palabra individual que
+  más veces "remata" un chiste o cierra el set-up.
+
+**Limitaciones**:
+- No todos los transcripts marcan reacciones (depende del transcriptor
+  de scrapsfromtheloft). Sin marcadores no hay triggers.
+- Captura **correlación, no causalidad**: una palabra frecuente antes
+  de risas puede ser solo común en el lenguaje del comediante.
+- Las reacciones a veces se anotan al final del párrafo, así que
+  podemos perder el set-up exacto.
+""")
+    col1, col2, col3 = st.columns(3)
+    kind = col1.radio("Tipo de reacción", ["laughter", "applause", "both"],
+                       index=0, horizontal=True)
+    n_words = col2.slider("Palabras antes del marcador", 3, 12, 6)
+    top_k_tr = col3.slider("Top K resultados", 10, 50, 25, key="tr_topk")
+
+    @st.cache_data(show_spinner="Calculando triggers...")
+    def cached_triggers(idx_key, kind, n_words, top_k):
+        sub = df_all.loc[list(idx_key)]
+        return laughter_triggers(sub, kind=kind, n_words=n_words, top_k=top_k)
+
+    tr = cached_triggers(tuple(df.index.tolist()), kind, n_words, top_k_tr)
+
+    st.metric("Marcadores encontrados", tr["total_markers"])
+    if tr["total_markers"] == 0:
+        st.warning("Este subset no tiene marcadores de reacción del público.")
+    else:
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown("#### Top n-gramas que disparan la reacción")
+            if len(tr["top_ngrams"]):
+                fig = px.bar(tr["top_ngrams"].sort_values(), orientation="h",
+                             labels={"value": "Apariciones", "index": ""})
+                fig.update_layout(height=500, showlegend=False,
+                                  margin=dict(l=0, r=0, t=10, b=0))
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.info("Sin n-gramas frecuentes detectados (requiere min_df=2).")
+        with col2:
+            st.markdown("#### Última palabra antes de la reacción")
+            if len(tr["top_last_words"]):
+                fig = px.bar(tr["top_last_words"].sort_values(), orientation="h",
+                             labels={"value": "Apariciones", "index": ""})
+                fig.update_layout(height=500, showlegend=False,
+                                  margin=dict(l=0, r=0, t=10, b=0))
+                st.plotly_chart(fig, use_container_width=True)
+
+        # Sample windows
+        st.markdown("#### Ejemplos de líneas que disparan la reacción")
+        st.caption(f"Muestra de hasta 15 fragmentos (de {tr['total_markers']} totales)")
+        for w in tr["windows"][:15]:
+            st.markdown(f"- *…{w}* → [reacción]")
+
+
+# === Datos ==============================================================
+with tabs[10]:
     st.subheader("Subset filtrado")
     show_cols = ["title", "comedian", "year", "rating", "votes", "runtime_min",
                  "word_count", "ttr", "sentiment"]
