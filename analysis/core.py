@@ -63,6 +63,14 @@ DEFAULT_STOPWORDS = {
     "anyone", "anything", "everything", "nothing", "something",
     "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten",
     "hundred", "thousand", "million",
+    # extra fillers / artifacts
+    "cause", "coz", "cos", "becau", "becuz",
+    "ha", "haha", "hahaha", "yep", "nope", "duh", "ugh", "hmm",
+    "lemme", "tryna", "imma", "outta", "kinda", "sorta",
+    "thx", "thanks", "thank",
+    "audience", "crowd", "stage", "mic", "show",
+    "minute", "second",
+    "told",
 }
 
 
@@ -124,20 +132,42 @@ _CONTRACTIONS = {
 _CONTRACTION_PATTERNS = [(re.compile(k, re.IGNORECASE), v) for k, v in _CONTRACTIONS.items()]
 
 
+_HAHA_RE = re.compile(r"\b(?:ha\W*){2,}\b", re.IGNORECASE)
+# A repeated single token, 3+ in a row, possibly with !/. between
+# (e.g. "Louis! Louis! Louis!" chants before walking on stage).
+_CHANT_RE = re.compile(
+    r"\b([A-Za-z]{3,}!?)([\s!.,?]+)(?:\1\2){2,}\1?\b",
+    re.IGNORECASE,
+)
+
+
 def clean_for_analysis(text: str) -> str:
     """
     Return a cleaned version of a transcript suitable for NLP analysis:
-    - Strips audience-reaction markers ([laughter], (applause), etc).
-    - Strips any other bracketed stage direction ([man], [music]).
-    - Expands common contractions so the tokenizer doesn't produce
-      bogus tokens like "don" from "don't".
+    - Normalize curly apostrophes (’ ` ´) to straight (') so the
+      contraction patterns match.
+    - Strip audience-reaction markers ([laughter], (applause), etc).
+    - Strip any other bracketed stage direction ([man], [music]).
+    - Strip "ha ha" / "haha" sequences (laughter approximations).
+    - Strip audience chants of repeated names ("Louis! Louis! Louis!").
+    - Expand common contractions so the tokenizer doesn't produce
+      bogus tokens like "don" from "don't" or "re" from "you're".
+    - Strip lyric music-note marks (♪).
     """
     if not isinstance(text, str):
         return ""
-    s = _ANY_STAGE_RE.sub(" ", text)
+    # 1. Normalize apostrophes/quotes
+    s = text.replace("’", "'").replace("‘", "'").replace("`", "'").replace("´", "'")
+    # 2. Strip stage directions
+    s = _ANY_STAGE_RE.sub(" ", s)
+    # 3. Strip "ha ha" / "haha" sequences
+    s = _HAHA_RE.sub(" ", s)
+    # 4. Strip repeated-token chants ("Louis! Louis! Louis!")
+    s = _CHANT_RE.sub(" ", s)
+    # 5. Expand contractions
     for pat, repl in _CONTRACTION_PATTERNS:
         s = pat.sub(repl, s)
-    # Music note marks used in lyric transcripts (e.g. Bo Burnham: Inside)
+    # 6. Music note marks used in lyric transcripts (e.g. Bo Burnham: Inside)
     s = s.replace("♪", " ")
     return re.sub(r"\s+", " ", s).strip()
 

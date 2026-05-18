@@ -1,0 +1,958 @@
+{
+  "method": "Curated topics scored via lexical matching. Each theme has a seed lexicon of stems; for each show we count occurrences (stem-prefix match) and normalize to hits per 1000 tokens.",
+  "n_shows_scored": 82,
+  "themes": [
+    {
+      "id": "family-domestic",
+      "label": "Familia y vida doméstica",
+      "description": "Esposa, hijos, padres, hogar y rutinas. Pilar del observational comedy.",
+      "lexicon_size": 24,
+      "lexicon_sample": [
+        "wife",
+        "husband",
+        "kids",
+        "kid",
+        "son",
+        "daughter",
+        "child",
+        "children",
+        "mom",
+        "mother"
+      ],
+      "subset_avg_per_1000": 15.91,
+      "subset_median_per_1000": 14.2,
+      "top_shows": [
+        {
+          "title": "JERROD CARMICHAEL: ROTHANIEL",
+          "comedian": "Jerrod Carmichael",
+          "year": 2022,
+          "rating": 7.8,
+          "score": 41.42
+        },
+        {
+          "title": "EDDIE MURPHY: DELIRIOUS",
+          "comedian": "Eddie Murphy",
+          "year": 1983,
+          "rating": 8.2,
+          "score": 40.22
+        },
+        {
+          "title": "SETH MEYERS: LOBBY BABY",
+          "comedian": "Seth Meyers",
+          "year": 2019,
+          "rating": 7.5,
+          "score": 34.22
+        },
+        {
+          "title": "HASAN MINHAJ: HOMECOMING KING",
+          "comedian": "Hasan Minhaj",
+          "year": 2017,
+          "rating": 8.3,
+          "score": 32.12
+        },
+        {
+          "title": "JOHN MULANEY: THE COMEBACK KID",
+          "comedian": "John Mulaney",
+          "year": 2015,
+          "rating": 8.0,
+          "score": 30.0
+        },
+        {
+          "title": "DONALD GLOVER: WEIRDO",
+          "comedian": "Donald Glover",
+          "year": 2012,
+          "rating": 7.5,
+          "score": 28.08
+        },
+        {
+          "title": "JOHN LEGUIZAMO'S ROAD TO BROADWAY",
+          "comedian": "John Leguizamo",
+          "year": 2018,
+          "rating": 7.5,
+          "score": 28.03
+        },
+        {
+          "title": "LOUIS C.K. 2017",
+          "comedian": "Louis C.K.",
+          "year": 2017,
+          "rating": 7.6,
+          "score": 27.57
+        },
+        {
+          "title": "ADAM SANDLER: 100% FRESH",
+          "comedian": "Adam Sandler",
+          "year": 2018,
+          "rating": 7.6,
+          "score": 27.06
+        },
+        {
+          "title": "ANTHONY JESELNIK: CALIGULA",
+          "comedian": "Anthony Jeselnik",
+          "year": 2013,
+          "rating": 7.9,
+          "score": 25.82
+        }
+      ],
+      "top_comedians": [
+        {
+          "comedian": "Jerrod Carmichael",
+          "mean_score": 41.42,
+          "n_shows": 1
+        },
+        {
+          "comedian": "Seth Meyers",
+          "mean_score": 34.22,
+          "n_shows": 1
+        },
+        {
+          "comedian": "Eddie Murphy",
+          "mean_score": 32.94,
+          "n_shows": 2
+        },
+        {
+          "comedian": "Hasan Minhaj",
+          "mean_score": 32.12,
+          "n_shows": 1
+        },
+        {
+          "comedian": "Donald Glover",
+          "mean_score": 28.08,
+          "n_shows": 1
+        }
+      ]
+    },
+    {
+      "id": "race-identity",
+      "label": "Raza, identidad y cultura",
+      "description": "Comentario sobre raza, etnicidad, identidad americana y experiencias minoritarias.",
+      "lexicon_size": 20,
+      "lexicon_sample": [
+        "black",
+        "white",
+        "asian",
+        "latino",
+        "hispanic",
+        "indian",
+        "african",
+        "racist",
+        "racism",
+        "minority"
+      ],
+      "subset_avg_per_1000": 3.38,
+      "subset_median_per_1000": 1.76,
+      "top_shows": [
+        {
+          "title": "RUSSELL PETERS: OUTSOURCED",
+          "comedian": "Russell Peters",
+          "year": 2006,
+          "rating": 8.1,
+          "score": 26.87
+        },
+        {
+          "title": "DAVE CHAPPELLE: 8:46",
+          "comedian": "Dave Chappelle",
+          "year": 2020,
+          "rating": 8.1,
+          "score": 12.72
+        },
+        {
+          "title": "CHRIS ROCK: BIGGER & BLACKER",
+          "comedian": "Chris Rock",
+          "year": 1999,
+          "rating": 8.0,
+          "score": 12.1
+        },
+        {
+          "title": "JUDAH FRIEDLANDER: AMERICA IS THE GREATEST COUNTRY IN THE UNITED STATES",
+          "comedian": "Judah Friedlander",
+          "year": 2017,
+          "rating": 7.8,
+          "score": 10.64
+        },
+        {
+          "title": "CHRIS ROCK: BRING THE PAIN",
+          "comedian": "Chris Rock",
+          "year": 1996,
+          "rating": 8.2,
+          "score": 10.1
+        },
+        {
+          "title": "AZIZ ANSARI: RIGHT NOW",
+          "comedian": "Aziz Ansari",
+          "year": 2019,
+          "rating": 7.5,
+          "score": 9.17
+        },
+        {
+          "title": "NEAL BRENNAN: 3 MICS",
+          "comedian": "Neal Brennan",
+          "year": 2017,
+          "rating": 7.9,
+          "score": 9.04
+        },
+        {
+          "title": "DAVE CHAPPELLE: EQUANIMITY",
+          "comedian": "Dave Chappelle",
+          "year": 2017,
+          "rating": 8.2,
+          "score": 8.75
+        },
+        {
+          "title": "CHRIS ROCK: NEVER SCARED",
+          "comedian": "Chris Rock",
+          "year": 2004,
+          "rating": 8.1,
+          "score": 8.44
+        },
+        {
+          "title": "DONALD GLOVER: WEIRDO",
+          "comedian": "Donald Glover",
+          "year": 2012,
+          "rating": 7.5,
+          "score": 8.4
+        }
+      ],
+      "top_comedians": [
+        {
+          "comedian": "Russell Peters",
+          "mean_score": 26.87,
+          "n_shows": 1
+        },
+        {
+          "comedian": "Judah Friedlander",
+          "mean_score": 10.64,
+          "n_shows": 1
+        },
+        {
+          "comedian": "Chris Rock",
+          "mean_score": 10.21,
+          "n_shows": 3
+        },
+        {
+          "comedian": "Aziz Ansari",
+          "mean_score": 9.17,
+          "n_shows": 1
+        },
+        {
+          "comedian": "Neal Brennan",
+          "mean_score": 9.04,
+          "n_shows": 1
+        }
+      ]
+    },
+    {
+      "id": "sex-body",
+      "label": "Sexo, cuerpo y comedia cruda",
+      "description": "Material picante: sexo, partes del cuerpo, fluidos, lenguaje explícito.",
+      "lexicon_size": 21,
+      "lexicon_sample": [
+        "sex",
+        "sexual",
+        "fuck",
+        "fucking",
+        "dick",
+        "cock",
+        "pussy",
+        "vagina",
+        "tits",
+        "boobs"
+      ],
+      "subset_avg_per_1000": 14.28,
+      "subset_median_per_1000": 10.58,
+      "top_shows": [
+        {
+          "title": "LOUIS C.K.: SHAMELESS",
+          "comedian": "Louis C.K.",
+          "year": 2007,
+          "rating": 8.6,
+          "score": 66.67
+        },
+        {
+          "title": "ADAM SANDLER: 100% FRESH",
+          "comedian": "Adam Sandler",
+          "year": 2018,
+          "rating": 7.6,
+          "score": 44.5
+        },
+        {
+          "title": "JIM JEFFERIES: I SWEAR TO GOD",
+          "comedian": "Jim Jefferies",
+          "year": 2009,
+          "rating": 8.2,
+          "score": 41.07
+        },
+        {
+          "title": "BILL HICKS: RELENTLESS",
+          "comedian": "Bill Hicks",
+          "year": 1992,
+          "rating": 8.7,
+          "score": 35.49
+        },
+        {
+          "title": "ROBIN WILLIAMS: WEAPONS OF SELF DESTRUCTION",
+          "comedian": "Robin Williams",
+          "year": 2009,
+          "rating": 7.8,
+          "score": 34.69
+        },
+        {
+          "title": "CHRIS ROCK: NEVER SCARED",
+          "comedian": "Chris Rock",
+          "year": 2004,
+          "rating": 8.1,
+          "score": 32.36
+        },
+        {
+          "title": "JIM JEFFERIES: BARE",
+          "comedian": "Jim Jefferies",
+          "year": 2014,
+          "rating": 8.1,
+          "score": 31.08
+        },
+        {
+          "title": "EDDIE MURPHY: DELIRIOUS",
+          "comedian": "Eddie Murphy",
+          "year": 1983,
+          "rating": 8.2,
+          "score": 31.06
+        },
+        {
+          "title": "CHRIS ROCK: BIGGER & BLACKER",
+          "comedian": "Chris Rock",
+          "year": 1999,
+          "rating": 8.0,
+          "score": 30.47
+        },
+        {
+          "title": "LOUIS C.K.: CHEWED UP",
+          "comedian": "Louis C.K.",
+          "year": 2008,
+          "rating": 8.6,
+          "score": 29.68
+        }
+      ],
+      "top_comedians": [
+        {
+          "comedian": "Adam Sandler",
+          "mean_score": 44.5,
+          "n_shows": 1
+        },
+        {
+          "comedian": "Jim Jefferies",
+          "mean_score": 32.43,
+          "n_shows": 3
+        },
+        {
+          "comedian": "Bill Hicks",
+          "mean_score": 31.77,
+          "n_shows": 2
+        },
+        {
+          "comedian": "Robin Williams",
+          "mean_score": 29.72,
+          "n_shows": 2
+        },
+        {
+          "comedian": "Eddie Murphy",
+          "mean_score": 29.43,
+          "n_shows": 2
+        }
+      ]
+    },
+    {
+      "id": "politics-america",
+      "label": "Política y Estados Unidos",
+      "description": "Trump, Biden, gobierno, partidos, EE.UU., guerras y patriotismo.",
+      "lexicon_size": 22,
+      "lexicon_sample": [
+        "trump",
+        "biden",
+        "obama",
+        "clinton",
+        "president",
+        "republican",
+        "democrat",
+        "congress",
+        "senate",
+        "government"
+      ],
+      "subset_avg_per_1000": 3.16,
+      "subset_median_per_1000": 1.87,
+      "top_shows": [
+        {
+          "title": "JUDAH FRIEDLANDER: AMERICA IS THE GREATEST COUNTRY IN THE UNITED STATES",
+          "comedian": "Judah Friedlander",
+          "year": 2017,
+          "rating": 7.8,
+          "score": 19.61
+        },
+        {
+          "title": "CHRIS ROCK: NEVER SCARED",
+          "comedian": "Chris Rock",
+          "year": 2004,
+          "rating": 8.1,
+          "score": 14.07
+        },
+        {
+          "title": "DAVE CHAPPELLE: EQUANIMITY",
+          "comedian": "Dave Chappelle",
+          "year": 2017,
+          "rating": 8.2,
+          "score": 10.66
+        },
+        {
+          "title": "EDDIE IZZARD: DRESS TO KILL",
+          "comedian": "Eddie Izzard",
+          "year": 1999,
+          "rating": 8.7,
+          "score": 8.98
+        },
+        {
+          "title": "JOHN LEGUIZAMO'S ROAD TO BROADWAY",
+          "comedian": "John Leguizamo",
+          "year": 2018,
+          "rating": 7.5,
+          "score": 8.44
+        },
+        {
+          "title": "JOHN MULANEY: THE COMEBACK KID",
+          "comedian": "John Mulaney",
+          "year": 2015,
+          "rating": 8.0,
+          "score": 8.19
+        },
+        {
+          "title": "BILL HICKS: REVELATIONS",
+          "comedian": "Bill Hicks",
+          "year": 1993,
+          "rating": 8.6,
+          "score": 7.99
+        },
+        {
+          "title": "GEORGE CARLIN: WHAT AM I DOING IN NEW JERSEY?",
+          "comedian": "George Carlin",
+          "year": 1988,
+          "rating": 8.2,
+          "score": 7.94
+        },
+        {
+          "title": "GEORGE CARLIN: BACK IN TOWN",
+          "comedian": "George Carlin",
+          "year": 1996,
+          "rating": 8.7,
+          "score": 7.55
+        },
+        {
+          "title": "DAVE CHAPPELLE: EQUANIMITY",
+          "comedian": "Dave Chappelle",
+          "year": 2017,
+          "rating": 8.2,
+          "score": 7.21
+        }
+      ],
+      "top_comedians": [
+        {
+          "comedian": "Judah Friedlander",
+          "mean_score": 19.61,
+          "n_shows": 1
+        },
+        {
+          "comedian": "John Leguizamo",
+          "mean_score": 8.44,
+          "n_shows": 1
+        },
+        {
+          "comedian": "Chris Rock",
+          "mean_score": 7.53,
+          "n_shows": 3
+        },
+        {
+          "comedian": "Bill Hicks",
+          "mean_score": 7.25,
+          "n_shows": 2
+        },
+        {
+          "comedian": "Dave Chappelle",
+          "mean_score": 6.24,
+          "n_shows": 5
+        }
+      ]
+    },
+    {
+      "id": "religion-death",
+      "label": "Religión, muerte y sentido",
+      "description": "Dios, Jesús, mortalidad, ateísmo, propósito de la vida.",
+      "lexicon_size": 25,
+      "lexicon_sample": [
+        "god",
+        "jesus",
+        "christ",
+        "religion",
+        "religious",
+        "church",
+        "priest",
+        "pray",
+        "prayer",
+        "heaven"
+      ],
+      "subset_avg_per_1000": 9.14,
+      "subset_median_per_1000": 8.78,
+      "top_shows": [
+        {
+          "title": "LOUIS C.K. AT THE DOLBY",
+          "comedian": "Louis C.K.",
+          "year": 2023,
+          "rating": 7.7,
+          "score": 24.58
+        },
+        {
+          "title": "EDDIE IZZARD: DRESS TO KILL",
+          "comedian": "Eddie Izzard",
+          "year": 1999,
+          "rating": 8.7,
+          "score": 20.58
+        },
+        {
+          "title": "LOUIS C.K. 2017",
+          "comedian": "Louis C.K.",
+          "year": 2017,
+          "rating": 7.6,
+          "score": 18.8
+        },
+        {
+          "title": "DAVE CHAPPELLE: 8:46",
+          "comedian": "Dave Chappelle",
+          "year": 2020,
+          "rating": 8.1,
+          "score": 17.59
+        },
+        {
+          "title": "RICHARD PRYOR: LIVE IN CONCERT",
+          "comedian": "Richard Pryor",
+          "year": 1979,
+          "rating": 8.2,
+          "score": 17.02
+        },
+        {
+          "title": "GEORGE CARLIN: BACK IN TOWN",
+          "comedian": "George Carlin",
+          "year": 1996,
+          "rating": 8.7,
+          "score": 15.55
+        },
+        {
+          "title": "BO BURNHAM: WORDS, WORDS, WORDS",
+          "comedian": "Bo Burnham",
+          "year": 2010,
+          "rating": 8.2,
+          "score": 15.4
+        },
+        {
+          "title": "BILL HICKS: REVELATIONS",
+          "comedian": "Bill Hicks",
+          "year": 1993,
+          "rating": 8.6,
+          "score": 15.36
+        },
+        {
+          "title": "RICKY GERVAIS: HUMANITY",
+          "comedian": "Ricky Gervais",
+          "year": 2018,
+          "rating": 8.0,
+          "score": 15.3
+        },
+        {
+          "title": "GEORGE CARLIN: YOU ARE ALL DISEASED",
+          "comedian": "George Carlin",
+          "year": 1999,
+          "rating": 8.6,
+          "score": 15.12
+        }
+      ],
+      "top_comedians": [
+        {
+          "comedian": "Richard Pryor",
+          "mean_score": 17.02,
+          "n_shows": 1
+        },
+        {
+          "comedian": "Ricky Gervais",
+          "mean_score": 15.3,
+          "n_shows": 1
+        },
+        {
+          "comedian": "Bill Hicks",
+          "mean_score": 14.46,
+          "n_shows": 2
+        },
+        {
+          "comedian": "Eddie Izzard",
+          "mean_score": 13.31,
+          "n_shows": 3
+        },
+        {
+          "comedian": "Louis C.K.",
+          "mean_score": 12.22,
+          "n_shows": 9
+        }
+      ]
+    },
+    {
+      "id": "meta-comedy",
+      "label": "Meta-comedia / el oficio",
+      "description": "Chistes sobre chistes, sobre comediantes, sobre la audiencia y el escenario.",
+      "lexicon_size": 18,
+      "lexicon_sample": [
+        "joke",
+        "jokes",
+        "comedy",
+        "comedian",
+        "comic",
+        "punchline",
+        "audience",
+        "crowd",
+        "show",
+        "stage"
+      ],
+      "subset_avg_per_1000": 5.07,
+      "subset_median_per_1000": 4.11,
+      "top_shows": [
+        {
+          "title": "MIKE BIRBIGLIA: THANK GOD FOR JOKES",
+          "comedian": "Mike Birbiglia",
+          "year": 2017,
+          "rating": 7.5,
+          "score": 29.43
+        },
+        {
+          "title": "HANNAH GADSBY: NANETTE",
+          "comedian": "Hannah Gadsby",
+          "year": 2018,
+          "rating": 8.3,
+          "score": 15.32
+        },
+        {
+          "title": "ANTHONY JESELNIK: CALIGULA",
+          "comedian": "Anthony Jeselnik",
+          "year": 2013,
+          "rating": 7.9,
+          "score": 14.08
+        },
+        {
+          "title": "HANNAH GADSBY: DOUGLAS",
+          "comedian": "Hannah Gadsby",
+          "year": 2020,
+          "rating": 7.8,
+          "score": 13.72
+        },
+        {
+          "title": "BO BURNHAM: MAKE HAPPY",
+          "comedian": "Bo Burnham",
+          "year": 2016,
+          "rating": 8.4,
+          "score": 12.89
+        },
+        {
+          "title": "DANIEL TOSH: COMPLETELY SERIOUS",
+          "comedian": "Daniel Tosh",
+          "year": 2007,
+          "rating": 7.7,
+          "score": 12.01
+        },
+        {
+          "title": "NORM MACDONALD: NOTHING SPECIAL",
+          "comedian": "Norm Macdonald",
+          "year": 2022,
+          "rating": 7.5,
+          "score": 10.81
+        },
+        {
+          "title": "BO BURNHAM: WORDS, WORDS, WORDS",
+          "comedian": "Bo Burnham",
+          "year": 2010,
+          "rating": 8.2,
+          "score": 10.73
+        },
+        {
+          "title": "RICKY GERVAIS: HUMANITY",
+          "comedian": "Ricky Gervais",
+          "year": 2018,
+          "rating": 8.0,
+          "score": 9.71
+        },
+        {
+          "title": "GABRIEL IGLESIAS: I'M SORRY FOR WHAT I SAID WHEN I WAS HUNGRY",
+          "comedian": "Gabriel Iglesias",
+          "year": 2016,
+          "rating": 7.5,
+          "score": 9.33
+        }
+      ],
+      "top_comedians": [
+        {
+          "comedian": "Hannah Gadsby",
+          "mean_score": 14.52,
+          "n_shows": 2
+        },
+        {
+          "comedian": "Anthony Jeselnik",
+          "mean_score": 14.08,
+          "n_shows": 1
+        },
+        {
+          "comedian": "Norm Macdonald",
+          "mean_score": 10.81,
+          "n_shows": 1
+        },
+        {
+          "comedian": "Bo Burnham",
+          "mean_score": 10.79,
+          "n_shows": 3
+        },
+        {
+          "comedian": "Mike Birbiglia",
+          "mean_score": 10.2,
+          "n_shows": 4
+        }
+      ]
+    },
+    {
+      "id": "technology-modern",
+      "label": "Tecnología y modernidad",
+      "description": "Internet, redes sociales, teléfonos, apps, IA, vida digital.",
+      "lexicon_size": 24,
+      "lexicon_sample": [
+        "phone",
+        "iphone",
+        "android",
+        "internet",
+        "google",
+        "facebook",
+        "instagram",
+        "twitter",
+        "tiktok",
+        "youtube"
+      ],
+      "subset_avg_per_1000": 2.93,
+      "subset_median_per_1000": 2.65,
+      "top_shows": [
+        {
+          "title": "BO BURNHAM: INSIDE",
+          "comedian": "Bo Burnham",
+          "year": 2021,
+          "rating": 8.6,
+          "score": 8.06
+        },
+        {
+          "title": "ADAM SANDLER: 100% FRESH",
+          "comedian": "Adam Sandler",
+          "year": 2018,
+          "rating": 7.6,
+          "score": 7.97
+        },
+        {
+          "title": "JOHN MULANEY: BABY J",
+          "comedian": "John Mulaney",
+          "year": 2023,
+          "rating": 7.5,
+          "score": 7.55
+        },
+        {
+          "title": "DOUG STANHOPE: NO REFUNDS",
+          "comedian": "Doug Stanhope",
+          "year": 2007,
+          "rating": 8.2,
+          "score": 5.55
+        },
+        {
+          "title": "JOHN MULANEY: KID GORGEOUS AT RADIO CITY",
+          "comedian": "John Mulaney",
+          "year": 2018,
+          "rating": 8.0,
+          "score": 5.42
+        },
+        {
+          "title": "MIKE BIRBIGLIA: THANK GOD FOR JOKES",
+          "comedian": "Mike Birbiglia",
+          "year": 2017,
+          "rating": 7.5,
+          "score": 5.34
+        },
+        {
+          "title": "HASAN MINHAJ: HOMECOMING KING",
+          "comedian": "Hasan Minhaj",
+          "year": 2017,
+          "rating": 8.3,
+          "score": 5.27
+        },
+        {
+          "title": "NEAL BRENNAN: 3 MICS",
+          "comedian": "Neal Brennan",
+          "year": 2017,
+          "rating": 7.9,
+          "score": 5.16
+        },
+        {
+          "title": "AZIZ ANSARI: RIGHT NOW",
+          "comedian": "Aziz Ansari",
+          "year": 2019,
+          "rating": 7.5,
+          "score": 4.85
+        },
+        {
+          "title": "JUDAH FRIEDLANDER: AMERICA IS THE GREATEST COUNTRY IN THE UNITED STATES",
+          "comedian": "Judah Friedlander",
+          "year": 2017,
+          "rating": 7.8,
+          "score": 4.78
+        }
+      ],
+      "top_comedians": [
+        {
+          "comedian": "Adam Sandler",
+          "mean_score": 7.97,
+          "n_shows": 1
+        },
+        {
+          "comedian": "Hasan Minhaj",
+          "mean_score": 5.27,
+          "n_shows": 1
+        },
+        {
+          "comedian": "Neal Brennan",
+          "mean_score": 5.16,
+          "n_shows": 1
+        },
+        {
+          "comedian": "Aziz Ansari",
+          "mean_score": 4.85,
+          "n_shows": 1
+        },
+        {
+          "comedian": "Judah Friedlander",
+          "mean_score": 4.78,
+          "n_shows": 1
+        }
+      ]
+    },
+    {
+      "id": "health-aging",
+      "label": "Salud, cuerpo y envejecimiento",
+      "description": "Doctores, enfermedad, ejercicio, edad, comida, mortalidad cotidiana.",
+      "lexicon_size": 30,
+      "lexicon_sample": [
+        "doctor",
+        "hospital",
+        "sick",
+        "illness",
+        "disease",
+        "cancer",
+        "diabetes",
+        "pill",
+        "medicine",
+        "drug"
+      ],
+      "subset_avg_per_1000": 6.09,
+      "subset_median_per_1000": 5.86,
+      "top_shows": [
+        {
+          "title": "MIKE BIRBIGLIA: THE OLD MAN AND THE POOL",
+          "comedian": "Mike Birbiglia",
+          "year": 2023,
+          "rating": 7.5,
+          "score": 23.34
+        },
+        {
+          "title": "JOHN MULANEY: BABY J",
+          "comedian": "John Mulaney",
+          "year": 2023,
+          "rating": 7.5,
+          "score": 16.55
+        },
+        {
+          "title": "JIM GAFFIGAN: OBSESSED",
+          "comedian": "Jim Gaffigan",
+          "year": 2014,
+          "rating": 7.6,
+          "score": 13.36
+        },
+        {
+          "title": "ROBIN WILLIAMS: WEAPONS OF SELF DESTRUCTION",
+          "comedian": "Robin Williams",
+          "year": 2009,
+          "rating": 7.8,
+          "score": 12.49
+        },
+        {
+          "title": "JIM GAFFIGAN: NOBLE APE",
+          "comedian": "Jim Gaffigan",
+          "year": 2018,
+          "rating": 7.6,
+          "score": 12.49
+        },
+        {
+          "title": "JOHN MULANEY: NEW IN TOWN",
+          "comedian": "John Mulaney",
+          "year": 2012,
+          "rating": 8.3,
+          "score": 12.18
+        },
+        {
+          "title": "DOUG STANHOPE: BEER HALL PUTSCH",
+          "comedian": "Doug Stanhope",
+          "year": 2013,
+          "rating": 7.6,
+          "score": 10.31
+        },
+        {
+          "title": "JIM JEFFERIES: I SWEAR TO GOD",
+          "comedian": "Jim Jefferies",
+          "year": 2009,
+          "rating": 8.2,
+          "score": 9.58
+        },
+        {
+          "title": "DOUG STANHOPE: NO REFUNDS",
+          "comedian": "Doug Stanhope",
+          "year": 2007,
+          "rating": 8.2,
+          "score": 9.37
+        },
+        {
+          "title": "CHRIS ROCK: BRING THE PAIN",
+          "comedian": "Chris Rock",
+          "year": 1996,
+          "rating": 8.2,
+          "score": 8.96
+        }
+      ],
+      "top_comedians": [
+        {
+          "comedian": "Jim Gaffigan",
+          "mean_score": 12.92,
+          "n_shows": 2
+        },
+        {
+          "comedian": "John Mulaney",
+          "mean_score": 10.62,
+          "n_shows": 4
+        },
+        {
+          "comedian": "Robin Williams",
+          "mean_score": 10.01,
+          "n_shows": 2
+        },
+        {
+          "comedian": "Doug Stanhope",
+          "mean_score": 9.84,
+          "n_shows": 2
+        },
+        {
+          "comedian": "Mike Birbiglia",
+          "mean_score": 8.88,
+          "n_shows": 4
+        }
+      ]
+    }
+  ]
+}

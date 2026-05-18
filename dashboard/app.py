@@ -23,19 +23,14 @@ from wordcloud import WordCloud
 from analysis import (
     EMOTIONS,
     apply_filters,
-    catchphrases_by_comedian,
-    cluster_comedians,
     emotion_profile,
     emotion_summary,
     emotion_top_words,
-    extract_topics,
     laughter_triggers,
     load_unified,
-    narrate_catchphrases,
     narrate_emotions,
     narrate_filters,
     narrate_predictor,
-    narrate_topics,
     predict_rating,
     sentiment_compound,
     tokenize,
@@ -69,32 +64,10 @@ def cached_emotions(idx_key: tuple) -> pd.DataFrame:
     return emotion_profile(sub)
 
 
-@st.cache_data(show_spinner="Modelando tópicos (LDA)...")
-def cached_topics(idx_key: tuple, n_topics: int) -> dict:
-    sub = df_all.loc[list(idx_key)]
-    return extract_topics(sub, n_topics=n_topics)
-
-
-@st.cache_data(show_spinner="Detectando catchphrases...")
-def cached_catchphrases(idx_key: tuple, lo: int, hi: int, top_k: int) -> dict:
-    sub = df_all.loc[list(idx_key)]
-    # Pass the full unfiltered df as background so single-comedian subsets
-    # still return distinctive n-grams (vs everyone else in the corpus).
-    return catchphrases_by_comedian(
-        sub, ngram_range=(lo, hi), top_k=top_k, background=df_all
-    )
-
-
 @st.cache_data(show_spinner="Calculando palabras por emoción...")
 def cached_emotion_words(idx_key: tuple, top_k: int) -> pd.DataFrame:
     sub = df_all.loc[list(idx_key)]
     return emotion_top_words(sub, top_k=top_k)
-
-
-@st.cache_data(show_spinner="Clusterizando comediantes (UMAP)...")
-def cached_clusters(idx_key: tuple, k: int) -> pd.DataFrame:
-    sub = df_all.loc[list(idx_key)]
-    return cluster_comedians(sub, k=k, method="umap")
 
 
 @st.cache_data(show_spinner="Entrenando modelo de rating...")
@@ -180,9 +153,7 @@ tabs = st.tabs([
     "☁️ Vocabulario",
     "😊 Sentimiento",
     "🎭 Emociones (NRC)",
-    "🧠 Tópicos (LDA)",
-    "🗣️ Catchphrases",
-    "🔗 Clustering",
+    "🧠 Tópicos",
     "⭐ Predicción rating",
     "📅 Por año",
     "🎯 Triggers de risa",
@@ -222,15 +193,36 @@ with tabs[1]:
     st.subheader("N-gramas más frecuentes")
     col1, col2, col3 = st.columns(3)
     corpus = df["transcript"].tolist()
+    # With a single show, min_df=2 makes CountVectorizer choke; lower it.
+    min_df_ngrams = 1 if len(corpus) < 3 else 2
+    from sklearn.feature_extraction.text import CountVectorizer
+    from analysis import DEFAULT_STOPWORDS
+
+    def safe_top_ngrams(corpus, n, top_k=15):
+        if not corpus or all(not (c or "").strip() for c in corpus):
+            return None
+        vec = CountVectorizer(
+            ngram_range=(n, n),
+            stop_words=list(DEFAULT_STOPWORDS),
+            min_df=min_df_ngrams,
+            token_pattern=r"(?u)\b[a-zA-Z]{3,}\b",
+        )
+        try:
+            X = vec.fit_transform(corpus)
+            sums = X.sum(axis=0).A1
+            return pd.Series(sums, index=vec.get_feature_names_out()).nlargest(top_k)
+        except ValueError:
+            return None
+
     for col, n, title in [(col1, 1, "Unigramas"), (col2, 2, "Bigramas"), (col3, 3, "Trigramas")]:
         with col:
-            try:
-                s = top_ngrams(corpus, n=n, top_k=15).sort_values()
-                fig = px.bar(s, orientation="h", title=title)
+            s = safe_top_ngrams(corpus, n=n)
+            if s is not None and len(s):
+                fig = px.bar(s.sort_values(), orientation="h", title=title)
                 fig.update_layout(showlegend=False)
                 st.plotly_chart(fig, use_container_width=True)
-            except ValueError:
-                st.info(f"Sin suficientes datos para {title.lower()}.")
+            else:
+                st.info(f"Sin datos para {title.lower()}.")
 
     st.subheader("WordCloud")
     text_blob = " ".join(" ".join(t) for t in df["tokens"])
@@ -386,194 +378,91 @@ comediantes, no como medida absoluta de "cuánto enojo siente".
     except ImportError:
         st.error("Falta el paquete `nrclex`. Instala: `pip install nrclex`")
 
-# === Tópicos LDA ========================================================
+# === Tópicos (curados) ==================================================
 with tabs[4]:
-    with st.expander("📖 ¿Qué es Topic Modeling (LDA)?"):
+    st.subheader("Temas del corpus — curados a mano")
+    with st.expander("📖 ¿Cómo se construyeron estos temas?"):
         st.markdown("""
-**LDA (Latent Dirichlet Allocation)** descubre **tópicos latentes** en un
-conjunto de documentos sin saber de antemano de qué hablan. Cada tópico es
-una **distribución de probabilidad sobre palabras** (las que tienden a
-aparecer juntas), y cada show es una **mezcla** de esos tópicos en
-distintas proporciones.
+En vez de descubrir tópicos con LDA (que daba resultados ruidosos en este
+corpus pequeño y dominado por filler), definí **8 temas centrales del
+stand-up** y asocié cada uno con un **léxico semilla** de ~20 palabras
+en inglés. Para cada show:
 
-**Cómo leer los resultados**:
-- La tabla muestra las 10 palabras más representativas de cada tópico.
-  Un tópico es "claro" cuando esas palabras forman un tema coherente
-  (p.ej. *wife, kids, family, marriage* = familia).
-- La barra muestra cuántos shows tienen ese tópico como dominante.
-- La tabla final ("Composición") muestra qué proporción de cada tópico
-  hay en cada show.
+1. Tokenizamos su transcript (limpio: sin laughter markers ni
+   contracciones rotas).
+2. Contamos cuántas palabras del léxico aparecen.
+3. Normalizamos por longitud → **hits por 1000 tokens**.
+4. Rankeamos los shows que más usan ese léxico → top exponentes.
 
-**Limitaciones del stand-up**: las transcripciones tienen muchas
-palabrotas comunes y filler ("fuck", "shit", "man") que dominan el
-vocabulario y pueden producir tópicos poco interpretables. Aumenté la
-lista de stopwords pero algunos tópicos aún saldrán difusos —
-**necesita probar con distintos N (3–15) y filtros** para encontrar
-agrupaciones claras.
+**Ventaja**: tópicos interpretables, comparables entre shows y
+reproducibles. **Desventaja**: solo capturamos lo que está en el
+léxico; un tema fuera de la lista no aparece.
+
+Los datos están en `data/data_frame/curated_topics.json`. Para
+agregar o ajustar temas, edita `analysis/compute_curated_topics.py`
+y vuelve a correr.
 """)
-    n_topics = st.slider("Número de tópicos", 3, 15, 8)
-    idx_key = tuple(df.index.tolist())
-    tr = cached_topics(idx_key, n_topics)
-    st.markdown(narrate_topics(tr, df))
 
-    st.subheader("Palabras por tópico")
-    topic_df = pd.DataFrame({f"T{i} ({tr['labels'][i]})": words for i, words in tr["topics"]})
-    st.dataframe(topic_df, use_container_width=True)
+    @st.cache_data
+    def load_curated_topics():
+        import json as _json
+        path = PROJECT_ROOT / "data" / "data_frame" / "curated_topics.json"
+        if not path.exists():
+            return None
+        return _json.loads(path.read_text(encoding="utf-8"))
 
-    st.subheader("Shows por tópico dominante")
-    dominant = tr["doc_topic"].argmax(axis=1)
-    counts = pd.Series(dominant).value_counts().sort_index()
-    fig = px.bar(x=[tr["labels"][i] for i in counts.index], y=counts.values,
-                 labels={"x": "Tópico (etiqueta)", "y": "Shows"})
-    st.plotly_chart(fig, use_container_width=True)
-
-    st.subheader("Composición de tópicos por show")
-    doc_df = pd.DataFrame(tr["doc_topic"], columns=[f"T{i}" for i in range(n_topics)])
-    doc_df.insert(0, "title", df["title"].values)
-    doc_df.insert(1, "comedian", df["comedian"].values)
-    st.dataframe(doc_df.round(2), use_container_width=True)
-
-# === Catchphrases =======================================================
-with tabs[5]:
-    with st.expander("📖 ¿Qué son las catchphrases?"):
-        st.markdown("""
-Calculamos **TF-IDF sobre n-gramas** (frases de 2, 3 o 4 palabras
-consecutivas). Por cada comediante:
-
-- **TF** (Term Frequency) = qué tanto usa esa frase en sus shows.
-- **IDF** (Inverse Document Frequency) = qué tan rara es esa frase en
-  el resto del corpus.
-
-Lo que sale arriba: frases que **este comediante usa mucho y los demás
-casi nada**. Filtra el dashboard a un solo comediante (p.ej. Louis C.K.)
-y aún funciona: se compara contra el corpus completo de fondo, no solo
-contra el subset visible.
-""")
-    col1, col2, col3 = st.columns(3)
-    lo = col1.slider("n-grama min", 2, 4, 2)
-    hi = col2.slider("n-grama max", lo, 5, max(lo, 4))
-    top_k = col3.slider("Top por comediante", 5, 30, 10)
-
-    idx_key = tuple(df.index.tolist())
-    cp = cached_catchphrases(idx_key, lo, hi, top_k)
-    st.markdown(narrate_catchphrases(cp, top_n=5))
-
-    candidates = sorted([c for c, s in cp.items() if len(s)])
-    if candidates:
-        com_choice = st.selectbox("Ver detalle de un comediante", candidates)
-        s = cp[com_choice]
-        fig = px.bar(s.sort_values(), orientation="h",
-                     title=f"Catchphrases de {com_choice}")
-        fig.update_layout(showlegend=False)
-        st.plotly_chart(fig, use_container_width=True)
-        if len(cp) == 1:
-            st.caption(
-                "Solo hay un comediante en el subset. Las frases mostradas "
-                "son distintivas de él **comparadas con el corpus completo** "
-                "(no solo el subset visible)."
-            )
+    curated = load_curated_topics()
+    if curated is None:
+        st.error("Falta `data/data_frame/curated_topics.json`. "
+                 "Corre `python analysis/compute_curated_topics.py`.")
     else:
-        st.info("Sin catchphrases detectables en este subset.")
-
-# === Clustering =========================================================
-with tabs[6]:
-    with st.expander("📖 ¿Qué significa el clustering?"):
-        st.markdown("""
-Cada **comediante** se representa como un vector con la frecuencia
-relativa (TF-IDF) de cada palabra que usa en todos sus shows
-combinados. Dos pasos:
-
-1. **K-means** agrupa esos vectores en *k* clusters: comediantes en
-   el mismo cluster tienen vocabularios parecidos.
-2. **UMAP** reduce esos vectores de ~10.000 dimensiones a **2
-   coordenadas (x, y)** preservando la cercanía relativa. Comediantes
-   cerca en el gráfico = vocabularios similares.
-
-**Cómo leerlo**:
-- Distancia entre puntos = qué tan distinto es el lenguaje que usan.
-- Color = cluster asignado por k-means.
-- Tamaño = número de shows del comediante en el subset (más shows =
-  estimación más confiable).
-
-**Qué NO significa**:
-- No mide "qué tan parecidos son sus chistes" — solo el léxico.
-- Dos comediantes en clusters distintos pueden hablar del mismo tema
-  con palabras distintas; dos comediantes en el mismo cluster pueden
-  tratar temas opuestos si usan vocabulario parecido.
-
-**Casos de uso**:
-- Encontrar el comediante con estilo más parecido al tuyo favorito.
-- Detectar "escuelas" estilísticas dentro del subset filtrado.
-""")
-    k = st.slider("Número de clusters (k-means)", 2, 10, 5)
-
-    # If the filtered subset has <3 comedians, fall back to the full corpus
-    # but highlight the comedians the user selected.
-    if df["comedian"].nunique() < 3:
-        idx_key = tuple(df_all.index.tolist())
-        highlighted = set(df["comedian"].unique())
-        st.info(
-            f"Subset con solo {df['comedian'].nunique()} comediante(s). "
-            f"Mostrando el mapa estilístico **del corpus completo** con "
-            f"{', '.join(highlighted)} resaltado(s)."
+        # Re-rank top shows per theme within the user's current filter
+        from analysis.compute_curated_topics import (
+            THEMES, score_show, tokenize_for_scoring,
         )
-    else:
-        idx_key = tuple(df.index.tolist())
-        highlighted = set()
+        theme_blocks = []
+        for theme in THEMES:
+            rows = []
+            for _, r in df.iterrows():
+                counter = tokenize_for_scoring(r["transcript"])
+                total = sum(counter.values())
+                sc = score_show(counter, theme["lexicon"], total)
+                rows.append({"title": r["title"], "comedian": r["comedian"],
+                             "year": r["year"], "rating": r["rating"],
+                             "score": sc})
+            tdf = pd.DataFrame(rows).sort_values("score", ascending=False)
+            theme_blocks.append((theme, tdf))
 
-    clus = cached_clusters(idx_key, k)
-    if len(clus) == 0:
-        st.info("Subset muy pequeño para clustering.")
-    else:
-        if highlighted:
-            clus = clus.copy()
-            clus["highlight"] = clus["comedian"].isin(highlighted)
-            fig = px.scatter(
-                clus, x="x", y="y", color=clus["cluster"].astype(str),
-                size="n_shows", hover_name="comedian",
-                symbol="highlight", symbol_map={True: "star", False: "circle"},
-                labels={"color": "Cluster", "symbol": "Resaltado"},
-                title="Mapa estilístico — corpus completo (★ = resaltado)",
-                height=600,
-            )
-        else:
-            st.markdown(
-                f"**{len(clus)} comediantes** proyectados a 2D con UMAP. "
-                f"Tamaño del punto ∝ número de shows. Colores = clusters de k-means."
-            )
-            fig = px.scatter(
-                clus, x="x", y="y", color=clus["cluster"].astype(str),
-                size="n_shows", hover_name="comedian",
-                labels={"color": "Cluster"},
-                title="Mapa estilístico de comediantes",
-                height=600,
-            )
-        fig.update_traces(textposition="top center", marker=dict(opacity=0.75))
+        # Summary bar: mean score per theme in this subset
+        summary = pd.DataFrame({
+            "tema": [t[0]["label"] for t in theme_blocks],
+            "score_promedio": [round(t[1]["score"].mean(), 2) for t in theme_blocks],
+        }).sort_values("score_promedio", ascending=True)
+        fig = px.bar(summary, x="score_promedio", y="tema", orientation="h",
+                     title="Intensidad promedio de cada tema en el subset (hits / 1000 tokens)",
+                     color="score_promedio", color_continuous_scale="Viridis")
+        fig.update_layout(showlegend=False, coloraxis_showscale=False, height=400)
         st.plotly_chart(fig, use_container_width=True)
 
-        # If a comedian was highlighted, also show their nearest neighbors
-        if highlighted:
-            st.subheader("Comediantes más cercanos a los resaltados")
-            from scipy.spatial.distance import cdist
-            import numpy as np
-            coords = clus[["x", "y"]].values
-            for com in highlighted:
-                if com not in clus["comedian"].values:
-                    continue
-                i = clus.index[clus["comedian"] == com][0]
-                d = cdist([coords[i]], coords).ravel()
-                order = np.argsort(d)[1:8]  # closest 7
-                neighbors = clus.iloc[order]["comedian"].tolist()
-                st.markdown(f"**{com}**: {' · '.join(neighbors)}")
-
-        st.subheader("Comediantes por cluster")
-        for c in sorted(clus["cluster"].unique()):
-            members = clus[clus["cluster"] == c]["comedian"].tolist()
-            with st.expander(f"Cluster {c} — {len(members)} comediantes"):
-                st.write(", ".join(members))
+        st.markdown("### Detalle por tema")
+        st.caption("Top 5 shows del subset filtrado en cada tema, "
+                   "con el léxico semilla usado para puntuar.")
+        for theme, tdf in theme_blocks:
+            with st.expander(f"**{theme['label']}** — {theme['description']}"):
+                st.markdown(f"*Léxico semilla*: `{', '.join(theme['lexicon'])}`")
+                top = tdf.head(5).copy()
+                top["score"] = top["score"].round(2)
+                st.dataframe(top, use_container_width=True, hide_index=True)
+                if len(tdf) >= 3:
+                    fig = px.bar(tdf.head(10).sort_values("score"),
+                                 x="score", y="title", orientation="h",
+                                 hover_data=["comedian", "year"],
+                                 title=f"Top 10 — {theme['label']}")
+                    fig.update_layout(height=400, showlegend=False)
+                    st.plotly_chart(fig, use_container_width=True)
 
 # === Predicción rating ==================================================
-with tabs[7]:
+with tabs[5]:
     with st.expander("📖 ¿Cómo funciona este modelo predictivo?"):
         st.markdown("""
 **Pregunta**: ¿hay palabras/features del texto que **correlacionen** con
@@ -637,7 +526,7 @@ recibir mejor o peor rating en IMDb?
         )
 
 # === Por año ============================================================
-with tabs[8]:
+with tabs[6]:
     st.subheader("Evolución temporal")
     with st.expander("📖 ¿Qué muestra esta pestaña?"):
         st.markdown("""
@@ -649,7 +538,11 @@ por año.
 """)
     bucket = st.slider("Tamaño del bucket (años)", 1, 10, 5)
 
-    yr_sent = yearly_sentiment_rating(df, bucket=bucket)
+    if len(df) < 2:
+        st.info("Necesitas al menos 2 shows en el subset para ver evolución temporal.")
+        yr_sent = pd.DataFrame()
+    else:
+        yr_sent = yearly_sentiment_rating(df, bucket=bucket)
     if len(yr_sent) == 0:
         st.info("No hay años suficientes en el subset.")
     else:
@@ -707,7 +600,7 @@ por año.
 
 
 # === Triggers de risa ===================================================
-with tabs[9]:
+with tabs[7]:
     st.subheader("¿Qué hace reír al público?")
     with st.expander("📖 ¿Cómo se calculan los triggers?"):
         st.markdown("""
@@ -773,7 +666,7 @@ de cada marcador y busca patrones:
 
 
 # === Datos ==============================================================
-with tabs[10]:
+with tabs[8]:
     st.subheader("Subset filtrado")
     show_cols = ["title", "comedian", "year", "rating", "votes", "runtime_min",
                  "word_count", "ttr", "sentiment"]
