@@ -76,6 +76,18 @@ NEW_SPECIALS = [
         "title_clean": "JOHN MULANEY: BABY J",
         "year": 2023, "rating": 7.5, "runtime": 80,
     },
+    {
+        "url": "https://scrapsfromtheloft.com/comedy/dave-chappelle-the-dreamer-transcript/",
+        "imdbID": "18278698", "comedian": "Dave Chappelle",
+        "title_clean": "DAVE CHAPPELLE: THE DREAMER",
+        "year": 2023, "rating": 7.0, "runtime": 58,
+    },
+    {
+        "url": "https://scrapsfromtheloft.com/comedy/dave-chappelle-the-closer-transcript/",
+        "imdbID": "15523010", "comedian": "Dave Chappelle",
+        "title_clean": "DAVE CHAPPELLE: THE CLOSER",
+        "year": 2021, "rating": 7.9, "runtime": 72,
+    },
 ]
 
 LEGACY_BODY_CLASS = (

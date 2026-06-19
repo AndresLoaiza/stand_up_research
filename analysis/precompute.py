@@ -90,7 +90,7 @@ def compute_topic_scores(df: pd.DataFrame) -> pd.DataFrame:
 
 def main():
     print("Loading df_unified...")
-    df = load_unified()
+    df = load_unified(use_enriched=False)
     print(f"  {len(df)} shows.")
 
     # 1. Sentiment + lexical stats (cheap)
