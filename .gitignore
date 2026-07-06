@@ -130,3 +130,6 @@ dmypy.json
 
 #no idea what is this
 .idea/
+
+# ruflo-rag-memory local vector store (plugin artifact, regenerable)
+ruvector.db
