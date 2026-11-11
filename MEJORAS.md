@@ -87,3 +87,7 @@ paleta limpia) → limitaciones honestas (inglés, n pequeño, correlación≠ca
 qué sigue. Dos versiones: post LinkedIn (~800 palabras, hook fuerte) y artículo
 largo. Firma: Andrés Loaiza, ingeniero de datos y comediante de Alta Comedia.
 ```
+
+---
+
+> Backlog anterior: `Improvements.md` (jun 2026) se retiró el 2026-11-10 para dejar un solo backlog por repo. No se revisó ítem por ítem; para consultarlo: `git show 6e0814e:Improvements.md`.
