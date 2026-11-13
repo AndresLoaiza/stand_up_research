@@ -101,57 +101,44 @@ def extraer_pose(id_: str):
     print(f"{id_}: {i} cuadros, comediante detectado en el {100 * det:.0f} %", flush=True)
 
 
-def movimiento(d: dict) -> tuple[np.ndarray, np.ndarray]:
-    """(t, movimiento por segundo en largos de torso). NaN donde no hay detección en dos cuadros seguidos."""
-    p, torso = d["puntos"], d["torso"]
-    escala = np.nanmedian(torso)              # torso típico: más estable que el de cada cuadro
-    paso = np.linalg.norm(np.diff(p, axis=0), axis=2)          # (n-1, puntos)
-    mov = np.nanmean(paso, axis=1) / escala * FPS
-    return d["t"][1:], mov
+def movimiento(d: dict) -> tuple[np.ndarray, dict]:
+    """(t, {"caminar": ..., "gesticular": ...}) en largos de torso por segundo, suavizado con mediana de 1 s.
+    Caminar = centro de caderas; gesticular = muñecas. Mismo criterio que Analisis_videos/scripts/tictalk.py."""
+    p, esc = d["puntos"], np.nanmedian(d["torso"])
+    suave = lambda v: np.array([np.nanmedian(v[max(0, j - 2):j + 2]) if np.isfinite(v[max(0, j - 2):j + 2]).any()
+                                else np.nan for j in range(len(v))])
+    cadera = np.nanmean(p[:, 6:8, :], axis=1)
+    return d["t"][1:], {
+        "caminar": suave(np.linalg.norm(np.diff(cadera, axis=0), axis=1) / esc * FPS),
+        "gesticular": suave(np.nanmean(np.linalg.norm(np.diff(p[:, 4:6, :], axis=0), axis=2), axis=1) / esc * FPS)}
 
 
-def ventana_media(t, v, centro, a, b):
-    m = (t >= centro + a) & (t < centro + b)
-    return np.nanmean(v[m]) if np.isfinite(v[m]).sum() >= 3 else np.nan
-
-
-def analizar(id_: str, n_azar: int = 2000, semilla: int = 7):
+def analizar(id_: str, semilla: int = 7):
     sys.path.insert(0, str(Path(__file__).resolve().parent))
     import metricas as M
     c = dict(np.load(M.FRAMES / f"{id_}.npz"))
     t0, t1 = M.ventana(c["t"], c["habla"])
     m = (c["t"] >= t0) & (c["t"] <= t1)
     p = c["risa"][m] + c["aplauso"][m]
-    u = max(M.UMBRAL_PISO, float(np.percentile(p, M.PERCENTIL)))
-    ev = M.eventos(c["t"][m], p, u, float(np.median(np.diff(c["t"]))))
-    # fuerza de cada reacción: su masa; "fuertes" = el tercio de mayor masa
-    masas = np.array([p[(c["t"][m] >= a) & (c["t"][m] < b)].sum() for a, b in ev])
+    ev = M.eventos(c["t"][m], p, max(M.UMBRAL_PISO, float(np.percentile(p, M.PERCENTIL))), float(np.median(np.diff(c["t"]))))
     ini = np.array([a for a, _ in ev])
+    masas = np.array([p[(c["t"][m] >= a) & (c["t"][m] < b)].sum() for a, b in ev])
     fuertes = ini[masas >= np.percentile(masas, 67)]
-    debiles = ini[masas < np.percentile(masas, 33)]
-
-    t, mov = movimiento(dict(np.load(POSE / f"{id_}.npz")))
-    antes = lambda xs: np.array([ventana_media(t, mov, x, *ANTES) for x in xs])
-    durante = lambda xs: np.array([ventana_media(t, mov, x, 0.0, 3.0) for x in xs])
-    ef, ed = antes(fuertes), antes(debiles)
-
-    # momentos al azar dentro del show, lejos de cualquier reacción
+    libres = np.array([x for x in np.arange(t0 + 5, t1 - 5, 0.5) if np.min(np.abs(ini - x)) > LEJOS_S])
+    t, series = movimiento(dict(np.load(POSE / f"{id_}.npz")))
     rng = np.random.default_rng(semilla)
-    libres = [x for x in np.arange(t0 + 5, t1 - 5, 0.5) if np.min(np.abs(ini - x)) > LEJOS_S]
-    azar = antes(rng.choice(libres, size=min(n_azar, len(libres)), replace=False))
-    azar = azar[np.isfinite(azar)]
-    ef_ok = ef[np.isfinite(ef)]
-    # ¿qué tan raro es que n momentos al azar tengan un promedio tan bajo como el de las reacciones fuertes?
-    medias_azar = np.array([rng.choice(azar, size=len(ef_ok)).mean() for _ in range(5000)])
-    p_valor = float((medias_azar <= ef_ok.mean()).mean())
-    return {
-        "id": id_, "reacciones_fuertes": len(fuertes), "con_pose": int(len(ef_ok)),
-        "detectado_pct": round(100 * float(np.isfinite(mov).mean()), 1),
-        "mov_antes_fuertes": round(float(np.nanmean(ef)), 3), "mov_antes_debiles": round(float(np.nanmean(ed)), 3),
-        "mov_azar": round(float(azar.mean()), 3), "mov_durante_fuertes": round(float(np.nanmean(durante(fuertes))), 3),
-        "antes_fuertes_vs_azar": round(float(np.nanmean(ef) / azar.mean()), 2),
-        "p_quietud": round(p_valor, 4),
-    }
+    fila = {"id": id_, "reacciones_fuertes": int(len(fuertes)),
+            "detectado_pct": round(100 * float(np.isfinite(dict(np.load(POSE / f"{id_}.npz"))["torso"]).mean()), 1)}
+    for nombre, v in series.items():
+        media = lambda xs: np.array([np.nanmean(v[(t >= x + ANTES[0]) & (t < x + ANTES[1])])
+                                     if np.isfinite(v[(t >= x + ANTES[0]) & (t < x + ANTES[1])]).sum() >= 3 else np.nan
+                                     for x in xs])
+        antes, azar = media(fuertes), media(libres)
+        antes, azar = antes[np.isfinite(antes)], azar[np.isfinite(azar)]
+        sorteo = np.array([rng.choice(azar, len(antes)).mean() for _ in range(4000)])
+        fila[f"{nombre}_proporcion"] = round(float(antes.mean() / azar.mean()), 2)
+        fila[f"{nombre}_p_mas_quieto"] = round(float((sorteo <= antes.mean()).mean()), 3)
+    return fila
 
 
 if __name__ == "__main__":

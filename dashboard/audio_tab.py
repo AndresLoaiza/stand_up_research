@@ -12,6 +12,7 @@ from analysis.core import PROJECT_ROOT
 VALIDACION = PROJECT_ROOT / "data" / "data_frame" / "df_audio_validacion.parquet"
 COMEDIANTES = PROJECT_ROOT / "data" / "data_frame" / "df_audio_comediantes.parquet"
 SECOS = PROJECT_ROOT / "data" / "data_frame" / "df_audio_secos.parquet"
+QUIETUD = PROJECT_ROOT / "data" / "data_frame" / "df_audio_quietud.parquet"
 INTEGRANTES = ["Andrés Loaiza", "Wilmar Tovar", "Daniela Villa", "Alex Marín"]
 CLAVE = ["reacciones_min", "segundos_entre_reacciones", "reaccion_dur_mediana_s", "reacciones_grandes_hora",
          "aplausos_hora", "tramos_secos_hora", "rachas_hora", "apertura", "cierre", "concentracion_top20",
@@ -264,4 +265,20 @@ Lo más confiable es la **forma** de cada show (dónde reacciona el público), n
                 "inicio_min": "empieza en el minuto", "duracion_s": "dura (s)",
                 "recupera_s": "tardó en volver (s; vacío = no volvió antes del final)"}),
                 use_container_width=True, hide_index=True)
+
+    # quietud antes del remate (audio/quietud.py): solo shows con una persona en tarima
+    if QUIETUD.exists():
+        q = pd.read_parquet(QUIETUD)
+        q = q[q["id"] == id_elegido]
+        if not q.empty:
+            r = q.iloc[0]
+            st.markdown("**¿Se queda quieto antes del remate?** (idea de TIC-TALK)")
+            st.markdown(f"En los 3 s antes de las {int(r['reacciones_fuertes'])} reacciones más fuertes, **camina** "
+                        f"{r['caminar_proporcion']:.2f} veces lo que camina en un momento al azar del mismo show "
+                        f"(p = {r['caminar_p_mas_quieto']}) y **gesticula** {r['gesticular_proporcion']:.2f} veces "
+                        f"(p = {r['gesticular_p_mas_quieto']}). Por debajo de 1 = más quieto; p menor que 0,05 sería "
+                        f"quietud clara. Postura detectada en el {r['detectado_pct']} % de los cuadros.")
+        else:
+            st.caption("Quietud antes del remate: solo se mide en shows con una persona en tarima "
+                       "(Ansioso y el set de La Korte por ahora).")
 
