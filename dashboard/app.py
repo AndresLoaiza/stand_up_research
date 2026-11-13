@@ -133,7 +133,7 @@ def cached_predict(idx_key: tuple, alpha: float) -> dict:
 
 df_all = get_data()
 
-from dashboard.audio_tab import render_audio_tab  # noqa: E402
+from dashboard.audio_tab import comediantes_audio, render_audio_tab  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
@@ -141,7 +141,9 @@ from dashboard.audio_tab import render_audio_tab  # noqa: E402
 # ---------------------------------------------------------------------------
 st.sidebar.title("🎤 Filtros")
 
-all_comedians = sorted(df_all["comedian"].dropna().unique())
+# Los comediantes que solo tienen audio (sin transcripción) también se pueden filtrar: la pestaña
+# "Risa medida" los usa. Las demás pestañas quedan vacías para ellos.
+all_comedians = sorted(set(df_all["comedian"].dropna().unique()) | set(comediantes_audio()))
 top_by_count = df_all["comedian"].value_counts().head(20).index.tolist()
 
 st.sidebar.markdown("**Comediantes** (vacío = todos)")
@@ -175,7 +177,7 @@ selected_titles = st.sidebar.multiselect(
 )
 
 st.sidebar.markdown("---")
-st.sidebar.caption("Los filtros se aplican a todas las pestañas.")
+st.sidebar.caption("Los filtros se aplican a todas las pestañas. En \"Risa medida (audio)\" solo cuentan comediantes y años: la mayoría de esos especiales no tiene rating ni votos.")
 
 df = apply_filters(
     df_all,
@@ -193,7 +195,8 @@ st.title("🎤 Stand-up Comedy — Text Mining Dashboard")
 st.markdown(narrate_filters(df_all, df))
 
 if len(df) == 0:
-    st.warning("Sin shows. Relaja los filtros.")
+    st.warning("Sin shows con transcripción para este filtro. Abajo, lo que hay en la risa medida en audio.")
+    render_audio_tab(selected, year_range)
     st.stop()
 
 c1, c2, c3, c4 = st.columns(4)
@@ -745,7 +748,7 @@ de cada marcador y busca patrones:
 
 # === Risa medida (audio) ===============================================
 with tabs[8]:
-    render_audio_tab()
+    render_audio_tab(selected, year_range)
 
 
 # === Datos ==============================================================

@@ -82,11 +82,20 @@ python audio/catalogo.py                     # decide qué videos entran (duplic
 python audio/metricas.py                     # -> df_audio, df_audio_arco, df_audio_sensibilidad
 python audio/validar.py                      # sensibilidad contra subtítulos para sordos
 python audio/hallazgos.py                    # todos los números del informe
+python audio/segmentos.py                    # por comediante dentro de los shows propios con turnos conocidos
 python audio/test_metricas.py                # pruebas con datos sintéticos
 ```
 
-Dashboard: pestaña "🔊 Risa medida (audio)" (`dashboard/audio_tab.py`). No usa los filtros de la
-barra lateral: tiene su propio conjunto de especiales.
+Dashboard: pestaña "🔊 Risa medida (audio)" (`dashboard/audio_tab.py`). Responde al filtro de
+comediantes y años de la barra lateral (no al de rating ni votos: casi ningún especial con audio los
+tiene). La lista de comediantes incluye a los que solo tienen audio y a los integrantes de Alta
+Comedia; si el filtro deja sin transcripciones, el dashboard muestra solo la parte de audio.
+
+**Por comediante** (`audio/segmentos.py` -> `df_audio_comediantes.parquet`): solo en *Hoy Nace un
+Chiste* (4 sets, cortes verificados con fotogramas) y *Comedia de Alto Riesgo* (turnos de
+`Analisis_videos/.../juegos.json`). Dentro de un show todos comparten grabación, así que el nivel
+sí se compara; el índice del show (1 = promedio de esa noche) es la medida justa. NAPE y Fuera de
+Charla no tienen turnos: la identificación por voz de `Analisis_videos/23_speakers.py` no funcionó.
 
 Lo que hay que saber antes de concluir algo:
 - **Se mide "reacción" (risa + aplauso), umbral 0,05.** En mezclas de TV la voz del comediante

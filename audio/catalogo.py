@@ -90,14 +90,16 @@ PROPIOS_VIDEO = {"0731": ("Set en La Korte, 31 jul 2025", "stand-up solo", 2025)
 
 # Shows propios ya procesados en Analisis_videos. "formato" importa: un panel o un show de
 # juegos no se compara de igual a igual con un especial de una persona.
+# Tercer valor: quién está en tarima. Un nombre si es solo; si no, el elenco (el desglose por
+# comediante de los shows con turnos conocidos lo hace audio/segmentos.py).
 PROPIOS = {
-    "ansioso/2025-08-22": ("Ansioso", "stand-up solo"),
-    "nape/2026-05-02": ("No Apto para Ex", "crowdwork e impro a dos"),
-    "nape/2026-07-04": ("No Apto para Ex", "crowdwork e impro a dos"),
-    "fuera_de_charla/2026-05-14": ("Fuera de Charla", "panel"),
-    "fuera_de_charla/2026-07-30": ("Fuera de Charla", "panel"),
-    "hoy_nace_un_chiste/2026-07-17": ("Hoy Nace un Chiste", "varios comediantes"),
-    "comedia_de_alto_riesgo/2026-10-15": ("Comedia de Alto Riesgo", "juegos de impro"),
+    "ansioso/2025-08-22": ("Ansioso", "stand-up solo", "Andrés Loaiza"),
+    "nape/2026-05-02": ("No Apto para Ex", "crowdwork e impro a dos", "Elenco de No Apto para Ex"),
+    "nape/2026-07-04": ("No Apto para Ex", "crowdwork e impro a dos", "Elenco de No Apto para Ex"),
+    "fuera_de_charla/2026-05-14": ("Fuera de Charla", "panel", "Panel de Fuera de Charla"),
+    "fuera_de_charla/2026-07-30": ("Fuera de Charla", "panel", "Panel de Fuera de Charla"),
+    "hoy_nace_un_chiste/2026-07-17": ("Hoy Nace un Chiste", "4 sets de stand-up", "Wilmar, Andrés, Daniela y Alex"),
+    "comedia_de_alto_riesgo/2026-10-15": ("Comedia de Alto Riesgo", "juegos de impro", "Alex, Wilmar y Daniela (presenta Andrés)"),
 }
 
 
@@ -165,10 +167,10 @@ def main():
                            "grupo": "referente", "formato": "especial" if mins >= 45 else "media hora",
                            "minutos": round(mins), "ruta": str(ruta), "incluir": "si", "nota": ""}
     filas += sorted(elegidos.values(), key=lambda r: (r["comediante"], r["anio"]))
-    for clave, (show, formato) in PROPIOS.items():
+    for clave, (show, formato, quien) in PROPIOS.items():
         wav = VIDEOS / clave / "audio_mono16k.wav"
         if wav.exists():
-            filas.append({"id": slug("alta-comedia", clave), "comediante": "Alta Comedia", "especial": show,
+            filas.append({"id": slug("alta-comedia", clave), "comediante": quien, "especial": show,
                           "anio": clave.split("/")[1][:4], "grupo": "propio", "formato": formato,
                           "minutos": round(minutos(wav)), "ruta": str(wav), "incluir": "si", "nota": clave})
     SALIDA.parent.mkdir(parents=True, exist_ok=True)
