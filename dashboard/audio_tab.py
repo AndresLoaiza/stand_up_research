@@ -11,6 +11,7 @@ from analysis.core import PROJECT_ROOT
 
 VALIDACION = PROJECT_ROOT / "data" / "data_frame" / "df_audio_validacion.parquet"
 COMEDIANTES = PROJECT_ROOT / "data" / "data_frame" / "df_audio_comediantes.parquet"
+SECOS = PROJECT_ROOT / "data" / "data_frame" / "df_audio_secos.parquet"
 INTEGRANTES = ["Andrés Loaiza", "Wilmar Tovar", "Daniela Villa", "Alex Marín"]
 CLAVE = ["reacciones_min", "segundos_entre_reacciones", "reaccion_dur_mediana_s", "reacciones_grandes_hora",
          "aplausos_hora", "tramos_secos_hora", "rachas_hora", "apertura", "cierre", "concentracion_top20",
@@ -244,3 +245,23 @@ Lo más confiable es la **forma** de cada show (dónde reacciona el público), n
     if flojos:
         st.markdown("Tramos por debajo de la franja habitual: " + ", ".join(
             f"décimo {d} (min {minutos * (d - 1) / 10:.0f}–{minutos * d / 10:.0f})" for d in flojos) + ".")
+
+    # tramos secos del show elegido y cuánto tardó la sala en volver (audio/sala.py)
+    if SECOS.exists():
+        secos = pd.read_parquet(SECOS)
+        suyos = secos[secos["especial"].eq(a.loc[a["id"] == id_elegido, "especial"].iloc[0])
+                      & secos["comediante"].eq(a.loc[a["id"] == id_elegido, "comediante"].iloc[0])]
+        st.markdown("**Tramos secos de este show y cuánto tardó la sala en volver**")
+        st.caption("Tramo seco: 45 s o más con la reacción por debajo del 25 % del ritmo normal del show. "
+                   "\"Volvió\" = el minuto siguiente llega al 80 % de su ritmo. En los 79 especiales la vuelta típica "
+                   "es inmediata o de 15 s, pero uno de cada cuatro tramos tarda más de un minuto y medio. Los "
+                   "especiales de TV están editados: les quitan tiempos muertos, así que tienen menos tramos secos "
+                   "que un show grabado entero.")
+        if suyos.empty:
+            st.markdown("Sin tramos secos de 45 s o más.")
+        else:
+            st.dataframe(suyos[["inicio_min", "duracion_s", "recupera_s"]].rename(columns={
+                "inicio_min": "empieza en el minuto", "duracion_s": "dura (s)",
+                "recupera_s": "tardó en volver (s; vacío = no volvió antes del final)"}),
+                use_container_width=True, hide_index=True)
+

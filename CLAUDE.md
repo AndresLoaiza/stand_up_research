@@ -83,6 +83,9 @@ python audio/metricas.py                     # -> df_audio, df_audio_arco, df_au
 python audio/validar.py                      # sensibilidad contra subtítulos para sordos
 python audio/hallazgos.py                    # todos los números del informe
 python audio/segmentos.py                    # por comediante dentro de los shows propios con turnos conocidos
+python audio/sala.py                         # memoria de la sala y costo de los tramos secos
+<venv de Analisis_videos> audio/quietud.py --pose   # postura del comediante a 4 cps (Ansioso, set La Korte)
+python audio/quietud.py                      # ¿se mueve menos antes de las reacciones fuertes?
 python audio/test_metricas.py                # pruebas con datos sintéticos
 ```
 
