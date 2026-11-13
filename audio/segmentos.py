@@ -13,6 +13,9 @@ Por qué esto sí es comparable y el nivel entre especiales no: todos los comedi
 comparten micrófono, sala y público. Con el umbral FIJO, la diferencia entre ellos no es de grabación.
 Lo que sí cambia es el momento: el público de las 9 no es el de las 10. La columna "orden" lo deja a la vista.
 
+Además, los shows completos de una sola persona (Ansioso y el set de La Korte, de Andrés), para ver a
+cada integrante en todos sus formatos.
+
 Uso:  python audio/segmentos.py   -> data/data_frame/df_audio_comediantes.parquet
 """
 from __future__ import annotations
@@ -35,6 +38,25 @@ HNUC = [("alta-comedia-hoy-nace-un-chiste-2026-07-17", "Wilmar Tovar", 0, 900),
         ("alta-comedia-hoy-nace-un-chiste-2026-07-17", "Andrés Loaiza", 900, 2244),
         ("alta-comedia-hoy-nace-un-chiste-2026-07-17", "Daniela Villa", 2244, 2718),
         ("alta-comedia-hoy-nace-un-chiste-2026-07-17", "Alex Marín", 2718, 4290)]
+
+
+# Shows completos de una sola persona: todo el show es suyo. El índice del show no aplica (sería 1 por
+# definición); sirven para ver a esa persona en un formato largo y su ritmo, no para compararla con compañeros.
+SOLOS = [("alta-comedia-ansioso-2025-08-22", "Andrés Loaiza", "Ansioso (ago 2025)"),
+         ("andres-loaiza-0731", "Andrés Loaiza", "Set en La Korte (31 jul 2025)")]
+NOMBRES = {"alta-comedia-hoy-nace-un-chiste-2026-07-17": "Hoy Nace un Chiste (17 jul 2026)",
+           "alta-comedia-comedia-de-alto-riesgo-2026-10-15": "Comedia de Alto Riesgo (15 oct 2026)",
+           **{id_: nombre for id_, _, nombre in SOLOS}}
+TIPO = {"alta-comedia-hoy-nace-un-chiste-2026-07-17": "set en show de varios",
+        "alta-comedia-comedia-de-alto-riesgo-2026-10-15": "turnos de impro"}
+
+
+def tramos_solos() -> list[tuple]:
+    out = []
+    for id_, quien, _ in SOLOS:
+        c = dict(np.load(M.FRAMES / f"{id_}.npz"))
+        out.append((id_, quien, *M.ventana(c["t"], c["habla"])))
+    return out
 
 
 def tramos_alto_riesgo() -> list[tuple]:
@@ -62,7 +84,7 @@ def medir(c: dict, ini: float, fin: float) -> dict:
 
 
 def main():
-    tramos = HNUC + tramos_alto_riesgo()
+    tramos = HNUC + tramos_alto_riesgo() + tramos_solos()
     frames = {}
     filas = []
     for orden, (id_, quien, ini, fin) in enumerate(tramos):
@@ -84,10 +106,13 @@ def main():
     # índice dentro del show: 1 = el promedio de ese show. Es la comparación justa entre compañeros.
     g["indice_show"] = (g["masa_reaccion_min"] / g.groupby("id")["masa"].transform("sum")
                         * g.groupby("id")["segundos"].transform("sum") / 60).round(2)
-    g["show"] = g["id"].map({"alta-comedia-hoy-nace-un-chiste-2026-07-17": "Hoy Nace un Chiste (17 jul 2026)",
-                             "alta-comedia-comedia-de-alto-riesgo-2026-10-15": "Comedia de Alto Riesgo (15 oct 2026)"})
+    g["show"] = g["id"].map(NOMBRES)
+    solo_show = g["id"].isin([x[0] for x in SOLOS])
+    g["tipo"] = g["id"].map(TIPO).fillna("show completo, solo")
+    g.loc[g["comediante"].str.contains("presentador"), "tipo"] = "presentador"
+    g.loc[solo_show, "indice_show"] = np.nan   # todo el show es suyo: no hay con quién compararlo
     g["solo"] = ~g["comediante"].str.contains(" y ")
-    cols = ["show", "comediante", "solo", "tramos", "primer_minuto", "minutos", "reacciones_min", "masa_reaccion_min",
+    cols = ["show", "comediante", "tipo", "solo", "tramos", "primer_minuto", "minutos", "reacciones_min", "masa_reaccion_min",
             "pct_tiempo_reaccion", "segundos_entre_reacciones", "aplausos_hora", "indice_show"]
     g[cols].to_parquet(M.DF / "df_audio_comediantes.parquet", index=False)
     pd.set_option("display.width", 220)

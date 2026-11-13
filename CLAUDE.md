@@ -96,6 +96,9 @@ Chiste* (4 sets, cortes verificados con fotogramas) y *Comedia de Alto Riesgo* (
 `Analisis_videos/.../juegos.json`). Dentro de un show todos comparten grabación, así que el nivel
 sí se compara; el índice del show (1 = promedio de esa noche) es la medida justa. NAPE y Fuera de
 Charla no tienen turnos: la identificación por voz de `Analisis_videos/23_speakers.py` no funcionó.
+También entran los shows completos de una sola persona (Ansioso y el set de La Korte), para ver a cada
+integrante en todos sus formatos; ahí el índice no aplica. La sección "La curva de un show" compara
+cualquier show (por defecto Ansioso) contra la franja central de los especiales y lista los décimos flojos.
 
 Lo que hay que saber antes de concluir algo:
 - **Se mide "reacción" (risa + aplauso), umbral 0,05.** En mezclas de TV la voz del comediante

@@ -186,21 +186,61 @@ Lo más confiable es la **forma** de cada show (dónde reacciona el público), n
     # --- Integrantes de Alta Comedia ----------------------------------------------
     if not por_comediante.empty:
         st.markdown("#### Integrantes de Alta Comedia, uno por uno")
-        st.caption("Solo en los shows donde se sabe quién tiene el micrófono: los cuatro sets de *Hoy Nace un Chiste* "
-                   "(cortes verificados con fotogramas) y los turnos de cada juego de *Comedia de Alto Riesgo*. "
-                   "Dentro de un mismo show todos comparten micrófono, sala y público, así que aquí sí se comparan "
-                   "niveles. **Índice del show** = reacción por minuto de ese comediante dividida por la del show "
-                   "completo (1 = el promedio de esa noche).")
-        st.warning("Ojo con el orden: quien abre recibe al público frío (Wilmar abrió *Hoy Nace un Chiste*) y el "
-                   "público se cansa al final. Daniela tuvo 8 minutos en ese show: muestra corta. Y los juegos de impro "
-                   "no son material escrito: no comparar el índice de un show con el del otro.")
-        solos = por_comediante[por_comediante["solo"]]
-        fig = px.bar(solos, x="comediante", y="indice_show", color="show", barmode="group",
-                     text="indice_show", hover_data=["minutos", "primer_minuto", "reacciones_min", "aplausos_hora"],
-                     labels={"indice_show": "Índice del show (1 = promedio de la noche)", "comediante": ""})
-        fig.add_hline(y=1, line_dash="dot", line_color="gray")
-        fig.update_layout(height=380, margin=dict(l=0, r=0, t=10, b=0))
-        st.plotly_chart(fig, use_container_width=True)
-        st.dataframe(por_comediante.drop(columns=["solo"]).rename(columns={
+        compartidos = por_comediante[por_comediante["indice_show"].notna()]
+        if not compartidos.empty:
+            st.markdown("**En la misma noche**")
+            st.caption("Solo en los shows donde se sabe quién tiene el micrófono: los cuatro sets de *Hoy Nace un "
+                       "Chiste* (cortes verificados con fotogramas) y los turnos de cada juego de *Comedia de Alto "
+                       "Riesgo*. Dentro de un mismo show todos comparten micrófono, sala y público, así que aquí sí se "
+                       "comparan niveles. **Índice del show** = reacción por minuto de esa persona dividida por la del "
+                       "show completo (1 = el promedio de esa noche).")
+            st.warning("Ojo con el orden: quien abre recibe al público frío (Wilmar abrió *Hoy Nace un Chiste*) y el "
+                       "público se cansa al final. Daniela tuvo 8 minutos en ese show: muestra corta. Los juegos de "
+                       "impro no son material escrito: no comparar el índice de un show con el del otro.")
+            barras = compartidos[compartidos["solo"]]
+            fig = px.bar(barras, x="comediante", y="indice_show", color="show", barmode="group", text="indice_show",
+                         hover_data=["tipo", "minutos", "primer_minuto", "reacciones_min", "aplausos_hora"],
+                         labels={"indice_show": "Índice del show (1 = promedio de la noche)", "comediante": ""})
+            fig.add_hline(y=1, line_dash="dot", line_color="gray")
+            fig.update_layout(height=380, margin=dict(l=0, r=0, t=10, b=0))
+            st.plotly_chart(fig, use_container_width=True)
+
+        st.markdown("**Cada integrante en todas sus apariciones**")
+        st.caption("Incluye los shows completos de una sola persona (*Ansioso* y el set de La Korte, de Andrés). Entre "
+                   "apariciones de shows distintos cambia la grabación (sala, celular, distancia al público): compare el "
+                   "ritmo y la forma, no el nivel. Ejemplo: Andrés da 3,1 reacciones por minuto en *Ansioso* y 2,0 en su "
+                   "set de *Hoy Nace un Chiste*, que se grabó con un celular al fondo del bar.")
+        personas = [p for p in INTEGRANTES if por_comediante["comediante"].str.contains(p.split()[0]).any()]
+        quien = st.selectbox("Integrante", personas, key="audio_integrante")
+        suyo = por_comediante[por_comediante["comediante"].str.contains(quien.split()[0])]
+        st.dataframe(suyo.drop(columns=["solo"]).rename(columns={
             "primer_minuto": "entra en el minuto", "minutos": "minutos en tarima", "indice_show": "índice del show",
             **AUDIO_METRICS}), use_container_width=True, hide_index=True)
+
+    # --- La curva de un show -------------------------------------------------------
+    st.markdown("#### La curva de un show contra la de los especiales")
+    st.caption("Cuánta reacción hay en cada décimo del show elegido, relativa a su propio promedio, sobre la franja "
+               "de la mitad central de los 79 especiales. Por debajo de la franja: un tramo más flojo de lo habitual.")
+    opciones = list(propios["show"]) + sorted(ref_todos["show"])
+    defecto = next((i for i, o in enumerate(opciones) if "Ansioso" in o), 0)
+    elegido = st.selectbox("Show", opciones, index=defecto, key="audio_curva")
+    id_elegido = a.loc[a["show"] == elegido, "id"].iloc[0]
+    banda = audio_arc_shape(arco, ref_todos["id"])
+    suyo = audio_arc_shape(arco, [id_elegido])
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=list(banda["decil"]) + list(banda["decil"])[::-1],
+                             y=list(banda["p75"]) + list(banda["p25"])[::-1], fill="toself", fillcolor="#2E6F95",
+                             opacity=0.15, line=dict(width=0), name="Mitad central de los especiales"))
+    fig.add_trace(go.Scatter(x=banda["decil"], y=banda["mediana"], name="Especial típico",
+                             line=dict(color="#2E6F95", width=2, dash="dash")))
+    fig.add_trace(go.Scatter(x=suyo["decil"], y=suyo["mediana"], name=elegido, mode="lines+markers",
+                             line=dict(color="#D1495B", width=3)))
+    fig.add_hline(y=1, line_dash="dot", line_color="gray")
+    minutos = float(a.loc[a["id"] == id_elegido, "minutos"].iloc[0])
+    fig.update_layout(height=400, xaxis_title=f"Décimo del show (cada uno ≈ {minutos / 10:.0f} min)",
+                      yaxis_title="Ritmo relativo a su propio promedio", margin=dict(l=0, r=0, t=10, b=0))
+    st.plotly_chart(fig, use_container_width=True)
+    flojos = [int(d) for d, v, p25 in zip(suyo["decil"], suyo["mediana"], banda["p25"]) if v < p25]
+    if flojos:
+        st.markdown("Tramos por debajo de la franja habitual: " + ", ".join(
+            f"décimo {d} (min {minutos * (d - 1) / 10:.0f}–{minutos * d / 10:.0f})" for d in flojos) + ".")
