@@ -1,5 +1,10 @@
 """Reusable analysis functions shared by the notebook and the Streamlit dashboard."""
 from .core import (
+    AUDIO_METRICS,
+    audio_arc_shape,
+    audio_correlations,
+    load_audio,
+    load_audio_arco,
     APPLAUSE_RE,
     DEFAULT_STOPWORDS,
     EMOTIONS,
@@ -30,6 +35,11 @@ from .core import (
 )
 
 __all__ = [
+    "AUDIO_METRICS",
+    "audio_arc_shape",
+    "audio_correlations",
+    "load_audio",
+    "load_audio_arco",
     "APPLAUSE_RE",
     "DEFAULT_STOPWORDS",
     "EMOTIONS",

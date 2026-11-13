@@ -133,3 +133,7 @@ dmypy.json
 
 # ruflo-rag-memory local vector store (plugin artifact, regenerable)
 ruvector.db
+
+# Audio: logs de la extracción y tiras de cuadros de revisión
+data/audio/*.log
+data/audio/*.jpg

@@ -70,6 +70,38 @@ NLTK on Windows often needs the SSL workaround:
 python -c "import ssl; ssl._create_default_https_context=ssl._create_unverified_context; import nltk; [nltk.download(p) for p in ['stopwords','punkt','punkt_tab','wordnet']]"
 ```
 
+## Audio: la risa medida en el video _(nov 2026)_
+
+`audio/` mide la reacción del público escuchando los videos de `D:\ANDRES\Stand up` (79 especiales
+de referencia, sin duplicados) y los shows propios de Alta Comedia que ya tienen audio en
+`Analisis_videos/output/`. Se cruza con el texto por `imdbID` (28 especiales tienen las dos fuentes).
+
+```bash
+python audio/catalogo.py                     # decide qué videos entran (duplicados, muestras, compilaciones fuera)
+<venv de Analisis_videos> audio/extraer_risas.py   # YAMNet necesita mediapipe; ~1 h para todo
+python audio/metricas.py                     # -> df_audio, df_audio_arco, df_audio_sensibilidad
+python audio/validar.py                      # sensibilidad contra subtítulos para sordos
+python audio/hallazgos.py                    # todos los números del informe
+python audio/test_metricas.py                # pruebas con datos sintéticos
+```
+
+Dashboard: pestaña "🔊 Risa medida (audio)" (`dashboard/audio_tab.py`). No usa los filtros de la
+barra lateral: tiene su propio conjunto de especiales.
+
+Lo que hay que saber antes de concluir algo:
+- **Se mide "reacción" (risa + aplauso), umbral 0,05.** En mezclas de TV la voz del comediante
+  domina y YAMNet le da a la risa probabilidades bajas o la llama "aplauso". El umbral de
+  `Analisis_videos/02b` (0,25, solo risa) encontró el 5 % de las risas marcadas en subtítulos
+  para sordos; este, el 76 % (mediana de los especiales con subtítulos con hora).
+- **El nivel (reacciones por minuto) depende de la grabación.** `hallazgos.py` mide qué parte de
+  la varianza de cada métrica ocurre dentro de un mismo comediante: si es casi toda, la métrica
+  dice más de la mezcla de sonido que del comediante. Preferir las métricas relativas a cada
+  show (forma por décimos, concentración, posición de los picos).
+- Se guardan los cuadros (`data/audio/frames/*.npz`, ~50 KB cada uno, en el repo) para poder
+  recalcular con otro umbral sin volver a escuchar todo.
+- Los shows propios son grabaciones de celular o cámara en sala, en español y en formatos
+  distintos (panel, juegos, dúo): comparables entre sí, no de igual a igual con un especial de TV.
+
 ## Conventions and gotchas
 
 **Transcript cleaning** (in `analysis.core.clean_for_analysis`) is

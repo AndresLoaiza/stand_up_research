@@ -133,6 +133,8 @@ def cached_predict(idx_key: tuple, alpha: float) -> dict:
 
 df_all = get_data()
 
+from dashboard.audio_tab import render_audio_tab  # noqa: E402
+
 
 # ---------------------------------------------------------------------------
 # Sidebar — filtros
@@ -212,6 +214,7 @@ tabs = st.tabs([
     "⭐ Predicción rating",
     "📅 Por año",
     "🎯 Triggers de risa",
+    "🔊 Risa medida (audio)",
     "📋 Datos",
 ])
 
@@ -740,8 +743,13 @@ de cada marcador y busca patrones:
             st.markdown(f"- *…{w}* → [reacción]")
 
 
-# === Datos ==============================================================
+# === Risa medida (audio) ===============================================
 with tabs[8]:
+    render_audio_tab()
+
+
+# === Datos ==============================================================
+with tabs[9]:
     st.subheader("Subset filtrado")
     show_cols = ["title", "comedian", "year", "rating", "votes", "runtime_min",
                  "word_count", "ttr", "sentiment"]

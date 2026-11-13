@@ -872,3 +872,79 @@ def narrate_predictor(result: dict) -> str:
         f"Features que **suben** el rating: {pos}. Las que lo **bajan**: {neg}. "
         f"⚠️ Con n pequeño y palabras como features, los coeficientes son sugerentes, no causales."
     )
+
+
+# ---------------------------------------------------------------------------
+# Audio: reacción del público medida en el video (audio/extraer_risas.py + audio/metricas.py)
+# ---------------------------------------------------------------------------
+AUDIO_PATH = PROJECT_ROOT / "data" / "data_frame" / "df_audio.parquet"
+AUDIO_ARCO_PATH = PROJECT_ROOT / "data" / "data_frame" / "df_audio_arco.parquet"
+
+# Métricas de audio que se cruzan con el texto y el rating. El nombre en español es el del parquet.
+AUDIO_METRICS = {
+    "reacciones_min": "Reacciones por minuto",
+    "masa_reaccion_min": "Masa de reacción por minuto (sin umbral)",
+    "pct_tiempo_reaccion": "% del tiempo con reacción",
+    "reaccion_dur_mediana_s": "Duración mediana de una reacción (s)",
+    "reacciones_grandes_hora": "Reacciones de 4 s o más por hora",
+    "aplausos_hora": "Aplausos fuertes por hora (mitad de show)",
+    "segundos_entre_reacciones": "Segundos entre reacciones (mediana)",
+    "tramos_secos_hora": "Tramos de 60 s sin reacción, por hora",
+    "rachas_hora": "Rachas (3+ reacciones a menos de 8 s) por hora",
+    "regularidad_cv": "Irregularidad minuto a minuto (CV)",
+    "concentracion_top20": "Concentración (reacción en el 20 % de minutos más fuertes)",
+    "posicion_picos": "Dónde caen los picos (0 inicio, 1 final)",
+    "secos_relativos_hora": "Silencios largos para ese show, por hora",
+    "apertura": "Apertura (1er décimo / promedio)",
+    "cierre": "Cierre (último décimo / promedio)",
+    "palabras_por_reaccion": "Palabras por reacción",
+    "palabras_min_habladas": "Palabras por minuto hablado",
+}
+
+
+def load_audio(text_df: pd.DataFrame | None = None) -> pd.DataFrame:
+    """Una fila por especial con audio. Si el especial también tiene transcripción (imdbID),
+    trae rating, palabras, TTR, sentimiento y NRC, y calcula las métricas que necesitan las dos
+    fuentes: palabras por reacción y palabras por minuto efectivamente hablado."""
+    if not AUDIO_PATH.exists():
+        return pd.DataFrame()
+    a = pd.read_parquet(AUDIO_PATH)
+    if text_df is None:
+        text_df = load_unified()
+    cols = ["imdbID", "rating", "votes", "word_count", "words_per_min", "ttr", "sentiment", "runtime_min"]
+    cols += [c for c in text_df.columns if c.startswith("nrc_")]
+    a = a.merge(text_df[cols].drop_duplicates("imdbID"), on="imdbID", how="left")
+    total = a["reacciones_min"] * a["minutos"]
+    a["palabras_por_reaccion"] = (a["word_count"] / total.replace(0, np.nan)).round(1)
+    a["palabras_min_habladas"] = (a["word_count"] / (a["minutos"] * a["pct_tiempo_habla"] / 100)).round(0)
+    return a
+
+
+def load_audio_arco() -> pd.DataFrame:
+    return pd.read_parquet(AUDIO_ARCO_PATH) if AUDIO_ARCO_PATH.exists() else pd.DataFrame()
+
+
+def audio_correlations(a: pd.DataFrame, target: str = "rating", min_n: int = 12) -> pd.DataFrame:
+    """Spearman de cada métrica de audio contra `target`. Con n chico casi nada es significativo:
+    se devuelve n y p para que la tabla no se lea como hallazgo lo que es ruido."""
+    from scipy.stats import spearmanr
+    rows = []
+    for col, label in AUDIO_METRICS.items():
+        sub = a[[col, target]].dropna()
+        if len(sub) < min_n or sub[col].nunique() < 3:
+            continue
+        rho, p = spearmanr(sub[col], sub[target])
+        rows.append({"métrica": label, "columna": col, "n": len(sub), "rho": round(float(rho), 2),
+                     "p": round(float(p), 3)})
+    return pd.DataFrame(rows).sort_values("p") if rows else pd.DataFrame()
+
+
+def audio_arc_shape(arco: pd.DataFrame, ids: Iterable[str]) -> pd.DataFrame:
+    """Forma promedio del show: masa de reacción por minuto de cada décimo dividida por el promedio del
+    propio show (1 = su ritmo normal). Mediana y cuartiles entre los especiales de `ids`."""
+    sub = arco[arco["id"].isin(list(ids))].copy()
+    if sub.empty:
+        return pd.DataFrame()
+    sub["rel"] = sub["masa_min"] / sub.groupby("id")["masa_min"].transform("mean")
+    return (sub.groupby("decil")["rel"].describe()[["25%", "50%", "75%", "count"]]
+               .rename(columns={"25%": "p25", "50%": "mediana", "75%": "p75", "count": "n"}).reset_index())
