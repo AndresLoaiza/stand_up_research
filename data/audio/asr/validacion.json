@@ -1,0 +1,38 @@
+[
+  {
+    "id": "louis-c-k-dolby",
+    "marcas": 105,
+    "sens_sonido": 0.8857142857142857,
+    "sens_con_asr": 0.9904761904761905,
+    "det_min": 4.233333333333333,
+    "det_min_con_asr": 6.833333333333333,
+    "recuperadas": 78
+  },
+  {
+    "id": "patrice-o-neal-killing-is-easy",
+    "marcas": 51,
+    "sens_sonido": 0.5098039215686274,
+    "sens_con_asr": 0.6470588235294118,
+    "det_min": 1.3333333333333333,
+    "det_min_con_asr": 1.8,
+    "recuperadas": 14
+  },
+  {
+    "id": "sebastian-maniscalco-embarrassed",
+    "marcas": 18,
+    "sens_sonido": 0.9444444444444444,
+    "sens_con_asr": 0.9444444444444444,
+    "det_min": 4.033333333333333,
+    "det_min_con_asr": 6.266666666666667,
+    "recuperadas": 67
+  },
+  {
+    "id": "eddie-izzard-stripped",
+    "marcas": 31,
+    "sens_sonido": 0.8709677419354839,
+    "sens_con_asr": 1.0,
+    "det_min": 4.233333333333333,
+    "det_min_con_asr": 6.266666666666667,
+    "recuperadas": 61
+  }
+]
