@@ -1,5 +1,17 @@
 """Reusable analysis functions shared by the notebook and the Streamlit dashboard."""
 from .core import (
+    attribution_test,
+    dry_chains,
+    memory_permutation_p,
+    bootstrap_percentile,
+    build_comedian_corpus,
+    callbacks,
+    fightin_words,
+    laugh_gaps,
+    marker_positions,
+    percentile_of,
+    style_from_blocks,
+    text_blocks,
     AUDIO_METRICS,
     audio_arc_shape,
     audio_correlations,
@@ -35,6 +47,18 @@ from .core import (
 )
 
 __all__ = [
+    "attribution_test",
+    "dry_chains",
+    "memory_permutation_p",
+    "bootstrap_percentile",
+    "build_comedian_corpus",
+    "callbacks",
+    "fightin_words",
+    "laugh_gaps",
+    "marker_positions",
+    "percentile_of",
+    "style_from_blocks",
+    "text_blocks",
     "AUDIO_METRICS",
     "audio_arc_shape",
     "audio_correlations",

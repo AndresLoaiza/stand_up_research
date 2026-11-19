@@ -948,3 +948,290 @@ def audio_arc_shape(arco: pd.DataFrame, ids: Iterable[str]) -> pd.DataFrame:
     sub["rel"] = sub["masa_min"] / sub.groupby("id")["masa_min"].transform("mean")
     return (sub.groupby("decil")["rel"].describe()[["25%", "50%", "75%", "count"]]
                .rename(columns={"25%": "p25", "50%": "mediana", "75%": "p75", "count": "n"}).reset_index())
+
+
+# ---------------------------------------------------------------------------
+# Per-comedian report: extended corpus, stylometry, Fightin' Words, attribution
+# ---------------------------------------------------------------------------
+RAW_PATH = PROJECT_ROOT / "data" / "data_frame" / "raw_transcripts.parquet"
+
+# Titles in raw_transcripts that are not stand-up specials (speeches, translations, TV bits).
+_NOT_SPECIAL_RE = re.compile(
+    r"traduz|trascriz|traducci|italian|monologue|speech|acceptance|award|globes|oscars|"
+    r"snl|saturday night|interview|podcast|roast|eulogy|tribute|commencement|letterman|tonight show|conan|"
+    r"kimmel|fallon|late show|daily show|sketch|trailer|q&a|ted talk|epilogue|correspondents|testo|extended cut",
+    re.IGNORECASE,
+)
+_EN_FUNCTION = {"the", "and", "you", "that", "to", "of", "it", "is", "in", "my", "i", "a", "was", "what", "like"}
+
+FIRST_PERSON = {"en": {"i", "me", "my", "mine", "myself"},
+                "es": {"yo", "me", "mi", "mis", "mío", "mía", "conmigo"}}
+SECOND_PERSON = {"en": {"you", "your", "yours", "yourself", "yourselves"},
+                 "es": {"tú", "tu", "tus", "te", "ti", "contigo", "usted", "ustedes", "vos"}}  # su/sus: also 3rd person
+PROFANITY_RE = {
+    "en": re.compile(r"^(fuck\w*|motherfuck\w*|shit\w*|bullshit|bitch\w*|damn\w*|goddamn\w*|ass|asshole\w*|cunt\w*|"
+                     r"dick\w*|cock\w*|pussy|pussies|piss\w*|bastard\w*|crap)$"),
+    "es": re.compile(r"^(hijueputa\w*|hp|puta\w*|puto\w*|mierda\w*|marica\w*|gonorrea\w*|malparid\w*|verga\w*|culo\w*|"
+                     r"carajo|joder|jodid\w*|coño|pendej\w*|huev[oó]n\w*|hueva\w*|chimba\w*|cagad\w*|cagar|ching\w*)$"),
+}
+WORD_RE = re.compile(r"[a-záéíóúñü']+")
+BLOCK = 1000  # tokens per block for TTR and the bootstrap
+
+_ES_STOP: set = set()
+try:  # NLTK Spanish stopwords; callbacks only need them to skip function-word n-grams
+    from nltk.corpus import stopwords as _nltk_sw
+    _ES_STOP = set(_nltk_sw.words("spanish"))
+except Exception:  # pragma: no cover
+    pass
+
+
+def _name_key(s: str) -> str:
+    return " ".join(re.sub(r"[^a-z ]", "", (s or "").lower()).split()[:2])
+
+
+def _shingles(text: str, k: int = 6) -> set:
+    t = TOKEN_RE.findall(text.lower())[:4000]
+    return {" ".join(t[i:i + k]) for i in range(0, max(len(t) - k, 0), 3)}
+
+
+def build_comedian_corpus(df: pd.DataFrame | None = None, raw: pd.DataFrame | None = None,
+                          min_words: int = 2500) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """All specials of the comedians in df_unified: the IMDb-matched ones plus every raw transcript whose
+    title names the same person. Returns (corpus, match_log). The log keeps every candidate raw transcript
+    with the decision and the reason, so the matching can be audited."""
+    df = load_unified() if df is None else df
+    raw = pd.read_parquet(RAW_PATH) if raw is None else raw
+    names = {_name_key(c): c for c in df["comedian"].unique()}
+    base = df[["comedian", "title", "year", "runtime_min", "transcript_raw", "transcript"]].assign(source="imdb")
+    seen = [(r.comedian, _shingles(r.transcript)) for r in base.itertuples()]
+    rows, log = [], []
+    for r in raw.itertuples():
+        title = str(r.title)
+        cand = _comedian_from_title(title.replace("–", "-").replace("—", "-"))
+        who = names.get(_name_key(cand)) or names.get(_name_key(str(r.comedian)))
+        if not who:
+            continue
+        entry = {"comedian": who, "title": title, "decision": "", "reason": ""}
+        text = r.transcript or ""
+        clean = clean_for_analysis(text)
+        toks = TOKEN_RE.findall(clean.lower())
+        title_key = re.sub(r"[^a-z ]", "", title.lower())
+        surname = re.sub(r"[^a-z ]", "", who.lower()).split()[-1]
+        if surname not in title_key.split():
+            entry.update(decision="rechazado", reason="el apellido no aparece en el título")
+        elif _NOT_SPECIAL_RE.search(title):
+            entry.update(decision="rechazado", reason="no es un especial nuevo (discurso, traducción, versión extendida o TV)")
+        elif len(toks) < min_words:
+            entry.update(decision="rechazado", reason=f"menos de {min_words} palabras")
+        elif sum(t in _EN_FUNCTION for t in toks) / max(len(toks), 1) < 0.15:
+            entry.update(decision="rechazado", reason="no está en inglés")
+        else:
+            sh = _shingles(clean)
+            # containment, not Jaccard: an extended cut or a second transcriber shares part of the text
+            dup = max((len(sh & s) / max(min(len(sh), len(s)), 1) for c, s in seen if c == who), default=0)
+            if dup > 0.15:
+                entry.update(decision="duplicado", reason="mismo texto que un especial ya incluido")
+            else:
+                y = re.search(r"\b(19[5-9]\d|20[0-2]\d)\b", title)
+                clean_title = re.sub(r"\s*[–—\-|�]?\s*[\[(]?(full\s+)?(transcript|transcripci\w+)\b.*$", "",
+                                     title, flags=re.IGNORECASE).strip()
+                rows.append({"comedian": who, "title": clean_title, "year": int(y.group(1)) if y else np.nan,
+                             "runtime_min": np.nan, "transcript_raw": text, "transcript": clean, "source": "raw"})
+                seen.append((who, sh))
+                entry.update(decision="aceptado")
+        log.append(entry)
+    corpus = pd.concat([base, pd.DataFrame(rows)], ignore_index=True)
+    corpus["lang"] = "en"
+    return corpus, pd.DataFrame(log)
+
+
+def _words(text: str) -> list[str]:
+    return WORD_RE.findall((text or "").lower().replace("’", "'"))
+
+
+def text_blocks(text_raw: str, lang: str = "en") -> pd.DataFrame:
+    """Split a transcript into blocks of ~BLOCK tokens (whole sentences) with the counts the style metrics
+    need. Metrics are recomputed from summed counts, so blocks can be bootstrapped."""
+    s = _ANY_STAGE_RE.sub(" ", (text_raw or "").replace("’", "'"))
+    rows, cur = [], None
+    for sent in re.split(r"(?<=[.!?…])\s+", s):
+        w = _words(sent)
+        if not w:
+            continue
+        if cur is None or cur["tokens"] >= BLOCK:
+            if cur is not None:
+                rows.append(cur)
+            cur = {"tokens": 0, "types": set(), "sentences": 0, "first": 0, "second": 0, "questions": 0,
+                   "profanity": 0}
+        cur["tokens"] += len(w)
+        cur["types"].update(w)
+        cur["sentences"] += 1
+        cur["questions"] += "?" in sent
+        cur["first"] += sum(t in FIRST_PERSON[lang] for t in w)
+        cur["second"] += sum(t in SECOND_PERSON[lang] for t in w)
+        cur["profanity"] += sum(bool(PROFANITY_RE[lang].match(t)) for t in w)
+    if cur is not None and (cur["tokens"] >= BLOCK // 2 or not rows):  # a short text still gets one block
+        rows.append(cur)
+    out = pd.DataFrame(rows)
+    if out.empty:
+        return out
+    out["ttr"] = out["types"].map(len) / out["tokens"]
+    return out.drop(columns="types")
+
+
+def style_from_blocks(b: pd.DataFrame) -> dict:
+    """Style metrics from (possibly resampled) blocks. TTR is per block of ~BLOCK tokens: plain TTR falls
+    with text length, so it is only comparable at a fixed length."""
+    tok = b["tokens"].sum()
+    return {
+        "ttr": float(b["ttr"].mean()),
+        "largo_frase": float(tok / max(b["sentences"].sum(), 1)),
+        "yo_vs_tu": float(100 * b["first"].sum() / max(b["first"].sum() + b["second"].sum(), 1)),
+        "preguntas_1000": float(1000 * b["questions"].sum() / tok),
+        "groserias_1000": float(1000 * b["profanity"].sum() / tok),
+    }
+
+
+def callbacks(text_clean: str, lang: str = "en", min_gap: int = 1500, max_reps: int = 6) -> dict:
+    """Callbacks: content 4-grams said again at least `min_gap` words later in the same show (about ten
+    minutes). 4-grams said more than `max_reps` times are refrains or chants, not callbacks."""
+    toks = _words(text_clean)
+    sw = DEFAULT_STOPWORDS if lang == "en" else _ES_STOP
+    pos: dict[str, list[int]] = {}
+    for i in range(len(toks) - 3):
+        g = toks[i:i + 4]
+        if len(set(g)) >= 3 and sum(t not in sw and len(t) > 2 for t in g) >= 2:  # "ears ears ears" is a refrain
+            pos.setdefault(" ".join(g), []).append(i)
+    found = sorted(((g, p[0], p[-1]) for g, p in pos.items() if 2 <= len(p) <= max_reps and p[-1] - p[0] >= min_gap),
+                   key=lambda x: x[1])
+    merged = []  # overlapping 4-grams of the same phrase count once
+    for g, a, b in found:
+        if merged and a - merged[-1][1] <= 4:
+            continue
+        merged.append((g, a, b))
+    n = max(len(toks), 1)
+    return {"n": len(merged), "por_10k": 10000 * len(merged) / n,
+            "ejemplos": [{"frase": g, "pos1": a / n, "pos2": b / n} for g, a, b in merged]}
+
+
+def laugh_gaps(text_raw: str, min_markers: int = 10) -> list[int] | None:
+    """Words between consecutive laughter/applause markers; None when the transcript has too few markers."""
+    parts = REACTION_RE.split((text_raw or "").replace("’", "'"))
+    if len(parts) - 1 < min_markers:
+        return None
+    return [len(_words(_ANY_STAGE_RE.sub(" ", p))) for p in parts[1:-1]]
+
+
+def marker_positions(text_raw: str) -> np.ndarray:
+    """Relative position (0-1, by spoken words) of every laughter/applause marker."""
+    s = (text_raw or "").replace("’", "'")
+    parts = REACTION_RE.split(s)
+    lens = np.cumsum([len(_words(_ANY_STAGE_RE.sub(" ", p))) for p in parts])
+    return lens[:-1] / max(lens[-1], 1) if len(parts) > 1 else np.array([])
+
+
+def fightin_words(counts_a: Counter, counts_b: Counter, prior: Counter, alpha0: float = 1000.0,
+                  min_count: int = 5) -> pd.DataFrame:
+    """Monroe, Colaresi & Quinn (2008) log-odds ratio with informative Dirichlet prior. z > 0: word typical
+    of A against B. The prior (whole-corpus frequencies) shrinks rare words, so the list is distinctive
+    vocabulary, not the most frequent words."""
+    n_a, n_b, n_p = sum(counts_a.values()), sum(counts_b.values()), sum(prior.values())
+    rows = []
+    for w, ya in counts_a.items():
+        a = alpha0 * prior.get(w, 0) / n_p
+        if ya < min_count or a <= 0:
+            continue
+        yb = counts_b.get(w, 0)
+        d = np.log((ya + a) / (n_a + alpha0 - ya - a)) - np.log((yb + a) / (n_b + alpha0 - yb - a))
+        rows.append((w, ya, yb, d / np.sqrt(1 / (ya + a) + 1 / (yb + a))))
+    return pd.DataFrame(rows, columns=["palabra", "n_a", "n_b", "z"]).sort_values("z", ascending=False)
+
+
+def percentile_of(value: float, others: Iterable[float]) -> float:
+    """Share of `others` below `value` (ties count half), 0-100."""
+    o = np.asarray([x for x in others if pd.notna(x)], dtype=float)
+    if not len(o) or pd.isna(value):
+        return np.nan
+    return float(100 * ((o < value).sum() + 0.5 * (o == value).sum()) / len(o))
+
+
+def bootstrap_percentile(blocks: pd.DataFrame, metric: str, others: Iterable[float], n_boot: int = 1000,
+                         seed: int = 0) -> tuple[float, float]:
+    """95 % interval of the percentile when the comedian's text blocks are resampled. It says how stable
+    the metric is inside the text we have, not how different the next special would be."""
+    rng = np.random.default_rng(seed)
+    o = [x for x in others if pd.notna(x)]
+    vals = [percentile_of(style_from_blocks(blocks.iloc[rng.integers(0, len(blocks), len(blocks))])[metric], o)
+            for _ in range(n_boot)]
+    return float(np.percentile(vals, 2.5)), float(np.percentile(vals, 97.5))
+
+
+def attribution_test(chunks: pd.DataFrame, n_perm: int = 1000, seed: int = 0) -> dict:
+    """Can style identify the comedian of a special the model never saw? `chunks`: columns comedian,
+    special and numeric features (function-word rates). Burrows' Delta in its cosine form: features are
+    z-scored on the training chunks, each comedian is the centroid of their chunks, a chunk goes to the
+    nearest centroid. Leave-one-special-out, so the held-out special never trains its own comedian; the
+    special goes to the majority vote of its chunks. Only comedians with 2+ specials take part.
+    Chance = 1/k; the permutation test shuffles comedians across specials."""
+    feats = [c for c in chunks.columns if c not in ("comedian", "special")]
+    keep = chunks.groupby("comedian")["special"].transform("nunique") >= 2
+    ch = chunks[keep].reset_index(drop=True)
+    specials = ch[["special", "comedian"]].drop_duplicates().set_index("special")["comedian"]
+    X = ch[feats].to_numpy(dtype=float)
+    sp_idx = ch["special"].to_numpy()
+
+    def run(labels: pd.Series) -> tuple[float, float]:
+        y = ch["special"].map(labels).to_numpy()
+        hit_c, hit_s = [], []
+        for sp in labels.index:
+            test = sp_idx == sp
+            mu, sd = X[~test].mean(0), X[~test].std(0) + 1e-9
+            Z = (X - mu) / sd
+            names = np.unique(y[~test])
+            cent = np.stack([Z[~test][y[~test] == n].mean(0) for n in names])
+            cent /= np.linalg.norm(cent, axis=1, keepdims=True)
+            zt = Z[test] / np.linalg.norm(Z[test], axis=1, keepdims=True)
+            pred = names[(zt @ cent.T).argmax(1)]
+            hit_c.extend(pred == labels[sp])
+            hit_s.append(pd.Series(pred).mode().iloc[0] == labels[sp])
+        return float(np.mean(hit_c)), float(np.mean(hit_s))
+
+    acc_c, acc_s = run(specials)
+    rng = np.random.default_rng(seed)
+    perm = [run(pd.Series(rng.permutation(specials.values), index=specials.index))[1] for _ in range(n_perm)]
+    k = specials.nunique()
+    return {"comediantes": int(k), "especiales": int(len(specials)), "fragmentos": int(len(ch)),
+            "acierto_fragmento": acc_c, "acierto_especial": acc_s, "azar": 1 / k,
+            "mayoritaria": float(specials.value_counts().iloc[0] / len(specials)),
+            "permutacion_p95": float(np.percentile(perm, 95)),
+            "p_permutacion": float((1 + sum(p >= acc_s for p in perm)) / (1 + n_perm)), "permutaciones": n_perm}
+
+
+def memory_permutation_p(series: np.ndarray, n_perm: int = 2000, seed: int = 0) -> tuple[float, float]:
+    """Lag-1 autocorrelation of the 15 s reaction series (the room's memory) and its permutation p-value:
+    shuffling the windows destroys any memory, so p = share of shuffles with autocorrelation >= observed."""
+    s = np.asarray(series, dtype=float)
+    if len(s) < 8 or s.std() == 0:
+        return np.nan, np.nan
+    ac = lambda x: float(np.corrcoef(x[:-1], x[1:])[0, 1])
+    obs = ac(s)
+    rng = np.random.default_rng(seed)
+    perm = np.array([ac(rng.permutation(s)) for _ in range(n_perm)])
+    return obs, float((1 + (perm >= obs).sum()) / (1 + n_perm))
+
+
+def dry_chains(secos: pd.DataFrame, gap_s: float = 60) -> list[dict]:
+    """Chains of dry stretches (the TIC-TALK rule in Analisis_videos/scripts/tictalk.py): two dry stretches
+    less than `gap_s` apart belong to the same chain. `secos`: inicio_min, duracion_s of one show."""
+    out, cur = [], []
+    for r in secos.sort_values("inicio_min").itertuples():
+        if cur and r.inicio_min * 60 - (cur[-1].inicio_min * 60 + cur[-1].duracion_s) <= gap_s:
+            cur.append(r)
+        else:
+            if len(cur) >= 2:
+                out.append(cur)
+            cur = [r]
+    if len(cur) >= 2:
+        out.append(cur)
+    return [{"desde_min": c[0].inicio_min, "hasta_min": c[-1].inicio_min + c[-1].duracion_s / 60, "tramos": len(c),
+             "seco_s": int(sum(x.duracion_s for x in c))} for c in out]

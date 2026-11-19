@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Comediantes: qué aprender de cada uno</title>
+<style>
+  @page { size: A4; margin: 0; }
+  :root { --ink:#1d1d1f; --ink2:#55565b; --mute:#8a8b90; --line:#e4e4e7; --bg:#fafaf9;
+          --acc:#c2410c; --acc-soft:#fed7aa; --band:#e7e5e4; --mid:#a8a29e; --warn:#9a3412; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif; color:var(--ink); font-size:8.4pt; line-height:1.32; }
+  .page { width:210mm; height:297mm; padding:11mm 12mm 10mm; page-break-after:always; overflow:hidden; position:relative; }
+  .page:last-child { page-break-after:auto; }
+  h1 { font-size:21pt; margin:0 0 1mm; letter-spacing:-.3px; }
+  h2 { font-size:9.6pt; margin:3.2mm 0 1.4mm; text-transform:uppercase; letter-spacing:.6px; color:var(--ink2); border-bottom:1px solid var(--line); padding-bottom:.8mm; }
+  h3 { font-size:8.8pt; margin:2mm 0 1mm; }
+  .muted { color:var(--mute); } .small { font-size:7.3pt; } .tiny { font-size:6.6pt; color:var(--mute); }
+  .head { display:grid; grid-template-columns:34mm 1fr; gap:5mm; }
+  .photo { width:34mm; height:42mm; object-fit:cover; border-radius:2mm; background:var(--band); }
+  .nophoto { width:34mm; height:42mm; border-radius:2mm; background:var(--band); display:flex; align-items:center; justify-content:center; color:var(--mute); font-size:7pt; text-align:center; padding:2mm; }
+  .facts { color:var(--ink2); margin-bottom:1.2mm; }
+  .bio { margin:0 0 1.2mm; }
+  .tags { display:flex; gap:1.5mm; flex-wrap:wrap; margin:1mm 0; }
+  .tag { border:1px solid var(--line); border-radius:4mm; padding:.3mm 2mm; font-size:7.2pt; color:var(--ink2); }
+  .tag.warn { border-color:var(--warn); color:var(--warn); font-weight:600; }
+  .specials { font-size:7.1pt; color:var(--ink2); }
+  .cols { display:grid; grid-template-columns:1fr 1fr; gap:6mm; }
+  .strip { display:grid; grid-template-columns:35mm 1fr 14mm; align-items:center; gap:2mm; height:4.6mm; }
+  .strip .lab { font-size:7.4pt; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .track { position:relative; height:2.6mm; background:var(--bg); border-radius:1.3mm; border:1px solid var(--line); }
+  .track .mid { position:absolute; left:50%; top:-.6mm; bottom:-.6mm; width:1px; background:var(--mid); }
+  .track .ci { position:absolute; top:.5mm; height:1.4mm; background:var(--acc-soft); border-radius:.7mm; }
+  .track .dot { position:absolute; top:50%; width:2.6mm; height:2.6mm; margin:-1.3mm 0 0 -1.3mm; background:var(--acc); border:1px solid #fff; border-radius:50%; }
+  .strip .val { font-size:7.1pt; text-align:right; color:var(--ink2); white-space:nowrap; }
+  .axis { display:grid; grid-template-columns:35mm 1fr 14mm; gap:2mm; font-size:6.4pt; color:var(--mute); }
+  .axis div:nth-child(2) { display:flex; justify-content:space-between; }
+  .chips { display:flex; flex-wrap:wrap; gap:1.2mm; }
+  .chip { background:var(--bg); border:1px solid var(--line); border-radius:1mm; padding:.2mm 1.4mm; font-size:7.4pt; }
+  .chip b { font-weight:600; } .chip span { color:var(--mute); font-size:6.6pt; }
+  .quote { border-left:2px solid var(--acc); padding:.4mm 0 .4mm 2.5mm; margin:1.2mm 0; }
+  .quote .t { font-style:italic; } .quote .w { font-size:6.8pt; color:var(--mute); }
+  .lesson { display:grid; grid-template-columns:22mm 1fr; gap:2mm; margin:1.2mm 0; }
+  .lesson .k { font-size:6.6pt; text-transform:uppercase; letter-spacing:.4px; color:var(--mute); padding-top:.3mm; }
+  .lesson .dato { font-weight:600; } .lesson .lect { color:var(--ink2); }
+  table { border-collapse:collapse; width:100%; }
+  td, th { padding:.6mm 1.2mm; border-bottom:1px solid var(--line); text-align:left; vertical-align:top; font-size:7.2pt; }
+  th { color:var(--ink2); font-weight:600; font-size:6.8pt; }
+  td.n, th.n { text-align:right; white-space:nowrap; }
+  .box { background:var(--bg); border:1px solid var(--line); border-radius:1.5mm; padding:1.6mm 2.2mm; }
+  .warnbox { border:1px solid var(--warn); border-radius:1.5mm; padding:1.6mm 2.2mm; color:var(--warn); font-size:7.4pt; margin:1.5mm 0; }
+  .foot { position:absolute; bottom:5mm; left:12mm; right:12mm; font-size:6.4pt; color:var(--mute); display:flex; justify-content:space-between; }
+  svg text { font-family: inherit; }
+  .lead { font-size:9.6pt; color:var(--ink2); max-width:170mm; }
+</style>
+</head>
+<body>
+
+{# ------------------------------------------------------------------ macros #}
+{% macro strip(r, show_ci=True) -%}
+<div class="strip">
+  <div class="lab" title="{{ r.unidad }}">{{ r.label }}</div>
+  <div class="track"><div class="mid"></div>
+    {% if r.x is not none %}
+      {% if show_ci and r.x_lo is not none %}<div class="ci" style="left:{{ r.x_lo }}%; width:{{ [r.x_hi - r.x_lo, 0.8]|max }}%"></div>{% endif %}
+      <div class="dot" style="left:{{ r.x }}%"></div>
+    {% endif %}
+  </div>
+  <div class="val">{{ r.valor }}{% if r.pct != '—' %} · p{{ r.pct }}{% endif %}</div>
+</div>
+{%- endmacro %}
+
+{% macro axis() -%}
+<div class="axis"><div></div><div><span>← menos</span><span>mediana</span><span>más →</span></div><div></div></div>
+{%- endmacro %}
+
+{% macro shape_svg(shape, ref) -%}
+{% set W = 70 %}{% set H = 16 %}{% set top = 2.2 %}
+<svg width="{{ W }}mm" height="{{ H + 4 }}mm" viewBox="0 0 {{ W }} {{ H + 4 }}">
+  {% set step = W / 9 %}
+  <polygon fill="#e7e5e4" points="{% for v in ref[2] %}{{ loop.index0 * step }},{{ H - ([v, top]|min) / top * H }} {% endfor %}{% for v in ref[0]|reverse %}{{ (9 - loop.index0) * step }},{{ H - ([v, top]|min) / top * H }} {% endfor %}"/>
+  <polyline fill="none" stroke="#a8a29e" stroke-width="0.5" points="{% for v in ref[1] %}{{ loop.index0 * step }},{{ H - ([v, top]|min) / top * H }} {% endfor %}"/>
+  <line x1="0" x2="{{ W }}" y1="{{ H - H / top }}" y2="{{ H - H / top }}" stroke="#d6d3d1" stroke-width="0.3" stroke-dasharray="1,1"/>
+  <polyline fill="none" stroke="#c2410c" stroke-width="0.8" points="{% for v in shape %}{{ loop.index0 * step }},{{ H - ([v, top]|min) / top * H }} {% endfor %}"/>
+  <text x="0" y="{{ H + 3.2 }}" font-size="2.6" fill="#8a8b90">inicio</text>
+  <text x="{{ W }}" y="{{ H + 3.2 }}" font-size="2.6" fill="#8a8b90" text-anchor="end">final</text>
+</svg>
+{%- endmacro %}
+
+{% macro sala_lines(s) -%}
+<div class="small">
+  <b>Memoria de la sala</b>: {{ s.memoria }} (p = {{ s.memoria_p }}, n = {{ s.ventanas }} ventanas).
+  <b>Tramos secos</b>: {{ s.secos_n }} ({{ s.secos_hora }} por hora){% if s.secos_pct is defined %}, percentil {{ s.secos_pct }} entre los especiales{% endif %};
+  {% if s.secos_n != '0' %}vuelve en una mediana de {{ s.recupera_s }} s.{% endif %}
+  {% if s.cadenas %}<b>Encadenados</b>: {% for c in s.cadenas %}min {{ c.desde }}–{{ c.hasta }} ({{ c.tramos }} tramos, {{ c.seco_s }} s secos){% if not loop.last %}; {% endif %}{% endfor %}.
+  {% else %}<b>Ningún tramo seco encadenado.</b>{% endif %}
+  {% if s.get("nota") %}<span class="tiny">{{ s.nota }}.</span>{% endif %}
+</div>
+{%- endmacro %}
+
+{# ------------------------------------------------------------------ cover / map #}
+<section class="page">
+  <div class="tiny">{{ m.fecha }} · TextMining · stand_up_research</div>
+  <h1>Comediantes: qué aprender de cada uno</h1>
+  <p class="lead">Una página por comediante. Cada número viene de sus transcripciones (y del audio cuando lo hay) comparado con los otros del corpus. Los datos van separados de la lectura: el dato es medición, la lectura es interpretación para el material propio.</p>
+  <div class="cols" style="grid-template-columns: 1.15fr 1fr; margin-top:3mm">
+    <div>
+      <h2>Mapa del estilo</h2>
+      {% set W = 100 %}{% set H = 92 %}{% set pad = 6 %}
+      <svg width="100mm" height="92mm" viewBox="0 0 {{ W }} {{ H }}">
+        <line x1="{{ pad }}" x2="{{ W - pad }}" y1="{{ mapa.zy }}" y2="{{ mapa.zy }}" stroke="#e4e4e7" stroke-width="0.3"/>
+        <line y1="{{ pad }}" y2="{{ H - pad }}" x1="{{ mapa.zx }}" x2="{{ mapa.zx }}" stroke="#e4e4e7" stroke-width="0.3"/>
+        {% for p in mapa.puntos %}
+          <circle cx="{{ p.sx }}" cy="{{ p.sy }}" r="1" fill="#c2410c" stroke="#fff" stroke-width="0.3"/>
+          {% if p.ly != p.sy %}<line x1="{{ p.sx }}" y1="{{ p.sy }}" x2="{{ p.lx }}" y2="{{ p.ly - 0.8 }}" stroke="#d6d3d1" stroke-width="0.2"/>{% endif %}
+          <text x="{{ p.lx }}" y="{{ p.ly + 0.9 }}" font-size="2.4" fill="#55565b" text-anchor="{{ p.anchor }}">{{ p.label }}</text>
+        {% endfor %}
+        <text x="{{ mapa.zx + 1 }}" y="{{ pad - 1.5 }}" font-size="2.3" fill="#8a8b90">↑ más {{ mapa.eje_y.mas }}</text>
+        <text x="{{ mapa.zx + 1 }}" y="{{ H - 1 }}" font-size="2.3" fill="#8a8b90">↓ más {{ mapa.eje_y.menos }}</text>
+      </svg>
+      <div class="tiny">Componentes principales de los percentiles de estilo (sin palabras por minuto ni risas, que no existen para todos). El eje horizontal explica el {{ mapa.var1 }} % de la variación y el vertical el {{ mapa.var2 }} %. Hacia la derecha: más {{ mapa.eje_x.mas }}; hacia la izquierda: más {{ mapa.eje_x.menos }}. Cerca = estilo parecido en estas métricas, no en el humor.</div>
+      <h2>El corpus</h2>
+      <div class="small">
+        {{ m.comediantes }} comediantes y {{ m.especiales }} especiales: {{ m.especiales_imdb }} con datos de IMDb y {{ m.especiales_raw }} transcripciones más del archivo de {{ m.raw_total }}, emparejadas por apellido en el título y revisadas
+        ({{ m.emparejamiento.aceptado }} aceptadas, {{ m.emparejamiento.duplicado }} duplicadas de un especial ya incluido, {{ m.emparejamiento.rechazado }} rechazadas: discursos, monólogos de TV, traducciones, textos cortos).
+        {{ m.n1 }} comediantes tienen un solo especial: sus páginas dicen <b>rasgo del especial</b>.
+        El rating IMDb ({{ m.rating_min }} a {{ m.rating_max }}) aparece solo como contexto: varía demasiado poco para concluir algo.
+      </div>
+    </div>
+    <div>
+      <h2>Índice</h2>
+      <table>
+        <tr><th>Comediante</th><th class="n">Especiales</th><th class="n">Años</th><th>Década</th></tr>
+        {% for c in comedians %}<tr><td>{{ c.name }}{% if c.audio %} <span class="tiny">· audio</span>{% endif %}</td><td class="n">{{ c.n }}</td><td class="n">{{ c.years }}</td><td>{{ c.decada }}</td></tr>{% endfor %}
+        {% for c in members %}<tr><td>{{ c.name }} <span class="tiny">· Alta Comedia</span></td><td class="n">{{ c.n }}</td><td class="n"></td><td></td></tr>{% endfor %}
+      </table>
+    </div>
+  </div>
+</section>
+
+{# ------------------------------------------------------------------ how to read #}
+<section class="page">
+  <h1>Cómo leer cada página</h1>
+  <div class="cols">
+    <div>
+      <h2>Percentiles</h2>
+      <p>Cada barra ubica al comediante entre los demás del corpus: el punto es su percentil (cuántos de los otros quedan por debajo) y la línea gris del centro es la mediana. La franja naranja clara es el intervalo de confianza del {{ m.ic }}: cuánto se movería el percentil si el texto que tenemos fuera otro parecido.</p>
+      <p>El intervalo de las métricas de texto sale de remuestrear bloques de {{ m.bloque }} palabras ({{ m.boot }} réplicas). El de palabras por minuto, callbacks y temas sale de remuestrear especiales: con un solo especial no hay intervalo. Ninguno de los dos mide cuánto cambiaría el próximo especial.</p>
+      <p>«Década» compara solo con comediantes de la misma década (mediana de los años de sus especiales), cuando hay al menos cuatro.</p>
+      <h2>Métricas</h2>
+      <table>{% for x in m.metricas %}<tr><td><b>{{ x.label }}</b></td><td>{{ x.unidad }}</td></tr>{% endfor %}</table>
+      <p class="small">TTR por bloque de {{ m.bloque }} palabras porque la proporción de palabras distintas baja con la longitud. Largo de frase y preguntas dependen de cómo puntuó el transcriptor. Callbacks: grupos de cuatro palabras con contenido que reaparecen {{ m.callback_gap }} palabras o más después (unos diez minutos); los que se repiten más de seis veces son estribillos y no cuentan. Palabras entre risas: solo en los {{ m.con_marcas }} especiales cuyo transcript marca las risas.</p>
+    </div>
+    <div>
+      <h2>Temas y palabras</h2>
+      <p>Temas: los ocho temas curados del proyecto, en palabras del tema por cada mil. Palabras distintivas: log-odds con prior de Dirichlet informativo (Monroe, Colaresi y Quinn, «Fightin' Words»). El número es z: qué tanto más usa esa palabra que el resto del corpus, ya descontado el azar de las palabras raras. Con dos o más especiales solo cuentan palabras que aparecen en al menos dos.</p>
+      <h2>Audio</h2>
+      <p>Para los comediantes con video: reacciones (risa más aplauso) por minuto y su percentil entre los {{ m.referentes_audio }} especiales de referencia, la forma del show por décimos (naranja) contra la franja central de los especiales (gris) y la sala: memoria (cuánto se parece la reacción de una ventana de quince segundos a la anterior; p por permutación), tramos secos, tramos secos encadenados (a menos de un minuto uno del otro) y cuánto tarda en volver. El nivel depende de la mezcla de sonido; la forma y la sala son más justas.</p>
+      <h2>Qué robarle</h2>
+      <p>Hasta tres rasgos donde el comediante es claramente distinto (intervalo entero por encima del percentil setenta o por debajo del treinta). El <b>dato</b> es medición; la <b>lectura</b> es una interpretación para probar en tarima, no un hallazgo.</p>
+      <div class="warnbox">Bios y fotos: Wikidata, Wikipedia y Wikimedia Commons, con su licencia en cada página. Ningún dato biográfico viene de la memoria del modelo; si falta en esas fuentes, dice «—».</div>
+    </div>
+  </div>
+</section>
+
+{# ------------------------------------------------------------------ one page per comedian #}
+{% macro person(c, member=False) -%}
+<section class="page" id="{{ c.slug }}">
+  <div class="head">
+    {% if c.photo %}<img class="photo" src="{{ c.photo.src }}">{% else %}<div class="nophoto">Sin foto con licencia libre en Wikimedia Commons</div>{% endif %}
+    <div>
+      <h1>{{ c.name }}</h1>
+      {% if not member %}
+        <div class="facts">Nacimiento: {{ c.bio.nacimiento }}{% if c.bio.muerte %} · muerte: {{ c.bio.muerte }}{% endif %} · origen: {{ c.bio.origen }} · activo: {{ c.bio.activo }}</div>
+        {% if c.bio.texto %}<p class="bio">{{ c.bio.texto }}</p>{% endif %}
+      {% endif %}
+      <div class="tags">
+        <span class="tag">{{ c.n }} {{ 'texto' if member else 'especial' }}{{ '' if c.n1 else ('s' if member else 'es') }}</span>
+        {% if not member %}<span class="tag">{{ c.palabras }} palabras</span><span class="tag">década {{ c.decada }}</span>{% else %}<span class="tag">{{ c.palabras_total }} palabras</span>{% endif %}
+        {% if c.n1 %}<span class="tag warn">Rasgo del especial: un solo texto</span>{% endif %}
+        {% if member and c.corto %}<span class="tag warn">Texto corto: orientativo</span>{% endif %}
+      </div>
+      {% if not member %}
+      <div class="specials">{% for s in c.specials %}{{ s.title }}{% if s.year and s.year not in s.title %} ({{ s.year }}){% endif %}{% if s.rating %} · IMDb {{ s.rating }}{% endif %}{% if not loop.last %}; {% endif %}{% endfor %}</div>
+      {% else %}
+      <div class="specials">{% for s in c.textos %}{{ s.title }}: {{ s.minutos }} min, {{ s.palabras }} palabras transcritas{% if not loop.last %}; {% endif %}{% endfor %}</div>
+      {% endif %}
+    </div>
+  </div>
+  {% if member %}
+  <div class="warnbox">Texto en español transcrito por Whisper (se salta partes; largo de frase y preguntas no son comparables), grabación de sala y formato distinto: los percentiles contra el corpus son orientativos. El puesto entre los cuatro integrantes sí es de igual a igual.</div>
+  {% endif %}
+  <div class="cols">
+    <div>
+      <h2>Temas</h2>
+      {% for r in c.topics %}{{ strip(r) }}{% endfor %}
+      {{ axis() }}
+      <h2>Palabras distintivas</h2>
+      {% if c.words %}<div class="chips">{% for w in c.words %}<span class="chip"><b>{{ w.palabra }}</b> <span>z {{ w.z }} · {{ w.n }}×</span></span>{% endfor %}</div>
+      <div class="tiny" style="margin-top:1mm">{% if member %}Frente a los otros tres integrantes.{% else %}Frente al resto del corpus.{% endif %}</div>
+      {% else %}<div class="small muted">Ninguna palabra pasa el umbral (z mayor que el de un {{ m.ic }}).</div>{% endif %}
+    </div>
+    <div>
+      <h2>Estilo</h2>
+      {% for r in c.style %}{{ strip(r) }}{% endfor %}
+      {{ axis() }}
+      <div class="tiny" style="margin-top:.8mm">
+        {% if member %}Puesto entre los cuatro integrantes: {% for r in c.style if r.rank != '—' %}{{ r.label|lower }} {{ r.rank }}.º{% if not loop.last %}, {% endif %}{% endfor %}.
+        {% elif c.style|selectattr('pct_decada', 'ne', '—')|list %}Percentil en su década ({{ c.decada }}, {{ c.pares_decada }} pares): {% for r in c.style if r.pct_decada != '—' %}{{ r.label|lower }} {{ r.pct_decada }}{% if not loop.last %}, {% endif %}{% endfor %}.
+        {% else %}Su década ({{ c.decada }}) tiene {{ c.pares_decada }} pares: muy pocos para un percentil por década.{% endif %}
+      </div>
+      {% if not member and c.audio %}
+        <h2>Audio</h2>
+        {% for a in c.audio.especiales[:2] %}
+          <div class="small"><b>{{ a.especial }}</b> · {{ a.minutos }} min · {{ a.reacciones_min }} reacciones por minuto (percentil {{ a.reacciones_pct }}) · apertura {{ a.apertura }}, cierre {{ a.cierre }} (uno = su ritmo medio) · décimo más flojo: {{ a.peor_decil }}</div>
+          {{ shape_svg(a.shape, m.shape_ref) }}
+          {{ sala_lines(a) }}
+        {% endfor %}
+        {% if c.audio.especiales|length > 2 %}<div class="tiny">También medidos, sin espacio aquí: {% for a in c.audio.especiales[2:] %}{{ a.especial }}{% if not loop.last %}, {% endif %}{% endfor %}.</div>{% endif %}
+      {% endif %}
+    </div>
+  </div>
+  {% if member %}
+  <h2>Audio: la sala</h2>
+  <div class="small">{% for r in c.formatos %}<b>{{ r.show }}</b> ({{ r.tipo }}): {{ r.minutos }} min, {{ r.reacciones_min }} reacciones por minuto{% if r.indice != '—' %}, índice {{ r.indice }}{% endif %}{% if not loop.last %} · {% endif %}{% endfor %}.
+    <span class="tiny">Índice: frente al promedio de esa noche (uno = promedio); solo compara dentro del mismo show.</span></div>
+  <div class="cols" style="grid-template-columns: repeat({{ c.salas|length }}, 1fr); gap:4mm">
+    {% for s in c.salas %}<div><h3>{{ s.show }}</h3>{{ sala_lines(s) }}</div>{% endfor %}
+  </div>
+  {% if c.quietud %}<h3>Quietud antes del remate</h3>
+    <div class="small">{% for q in c.quietud %}{{ q.show }}: caminar {{ q.caminar }} veces lo normal antes de una reacción fuerte (p = {{ q.caminar_p }}), gesticular {{ q.gesticular }} (p = {{ q.gesticular_p }}); n = {{ q.n }} reacciones fuertes, postura detectada en el {{ q.detectado }} % de los cuadros.{% if not loop.last %}<br>{% endif %}{% endfor %}
+    <span class="tiny">Menos de uno = más quieto antes de la risa que al azar; con p grande no es concluyente.</span></div>
+  {% else %}<div class="tiny">Quietud antes del remate: no medida (varios comediantes en el cuadro).</div>{% endif %}
+  {% endif %}
+  <h2>Citas</h2>
+  {% for q in (c.quotes[:2] if member else c.quotes) %}<div class="quote"><div class="w">{{ q.tipo }} — {{ q.donde }}</div><div class="t">{{ q.texto }}</div></div>{% endfor %}
+  <h2>{% if c.name == 'Andrés Loaiza' %}Qué mantener o trabajar{% else %}Qué robarle{% endif %}</h2>
+  {% if c.lessons %}
+    {% for l in c.lessons %}<div class="lesson"><div class="k">{{ l.titulo }}</div><div><div class="dato">Dato: {{ l.dato }}</div><div class="lect">Lectura: {{ l.lectura }}</div></div></div>{% endfor %}
+  {% else %}<div class="small muted">Ningún rasgo queda claramente fuera del montón: su intervalo cruza la mediana en todo. No hay lección que el dato respalde.</div>{% endif %}
+  <div class="foot">
+    <span>{% if not member %}Bio: {% if c.bio.fuente %}{{ c.bio.fuente }}{% else %}sin artículo{% endif %}{% if c.bio.wikidata %} · {{ c.bio.wikidata }}{% endif %}{% else %}Alta Comedia · transcripción Whisper{% endif %}</span>
+    <span>{% if c.photo %}Foto: {{ c.photo.artist }}{% if c.photo.artist %}, {% endif %}{{ c.photo.license }}{% if c.photo.source %} (Wikimedia Commons){% endif %}{% endif %}</span>
+  </div>
+</section>
+{%- endmacro %}
+
+{% for c in comedians %}{{ person(c) }}{% endfor %}
+
+{# ------------------------------------------------------------------ Alta Comedia #}
+<section class="page">
+  <h1>Alta Comedia, medida igual</h1>
+  <p class="lead">Las páginas siguientes aplican las mismas métricas a los cuatro integrantes. Antes de leerlas:</p>
+  <div class="warnbox">
+    <b>Idioma.</b> El corpus está en inglés y los textos propios en español. Pronombres, groserías y temas usan listas en español; el TTR en español sale más alto por la conjugación.<br>
+    <b>Grabación.</b> Celular o cámara en sala frente a mezclas de TV: el nivel de reacción no se compara con los especiales, solo la forma, la sala y el índice dentro de la misma noche.<br>
+    <b>Formato.</b> Sets dentro de un show de varios (Hoy Nace un Chiste) y, para Andrés, un show completo (Ansioso). Whisper se salta partes del audio: el texto está incompleto, más en los tramos de interacción con el público.
+  </div>
+</section>
+{% for c in members %}{{ person(c, member=True) }}{% endfor %}
+
+{# ------------------------------------------------------------------ annex #}
+<section class="page">
+  <h1>Anexo: solo audio</h1>
+  <p class="lead">Comediantes de referencia con video pero sin transcripción en el corpus. Solo hay medidas de la sala.</p>
+  <table>
+    <tr><th>Comediante</th><th>Especial</th><th class="n">min</th><th class="n">reac./min</th><th class="n">pct</th><th class="n">apertura</th><th class="n">cierre</th><th class="n">secos/h</th><th class="n">cadenas</th><th class="n">memoria (p)</th></tr>
+    {% for r in annex %}<tr><td>{{ r.comediante }}</td><td>{{ r.especial }}{% if r.anio %} ({{ r.anio }}){% endif %}</td><td class="n">{{ r.minutos }}</td><td class="n">{{ r.reacciones_min }}</td><td class="n">{{ r.reacciones_pct }}</td><td class="n">{{ r.apertura }}</td><td class="n">{{ r.cierre }}</td><td class="n">{{ r.secos_hora }}</td><td class="n">{{ r.cadenas }}</td><td class="n">{{ r.memoria }} ({{ r.memoria_p }})</td></tr>{% endfor %}
+  </table>
+  <div class="tiny" style="margin-top:2mm">Apertura y cierre: reacción del primer y último décimo frente al promedio del show (uno = su ritmo). pct: percentil de reacciones por minuto entre los especiales de referencia.</div>
+</section>
+
+{# ------------------------------------------------------------------ validation #}
+{% if v %}
+<section class="page">
+  <h1>¿Está bien medido?</h1>
+  <p class="lead">Tres pruebas que no dependen de mi criterio ni del tuyo.</p>
+  <h2>Uno. ¿El estilo identifica al comediante?</h2>
+  <p>{{ v.atrib.metodo }}</p>
+  <div class="box">
+    {{ v.atrib.comediantes }} comediantes con dos o más especiales, {{ v.atrib.especiales }} especiales, {{ v.atrib.fragmentos }} fragmentos.
+    Acierta el comediante de un especial que nunca vio en el <b>{{ v.atrib.acierto_especial }} %</b> de los casos ({{ v.atrib.acierto_fragmento }} % por fragmento).
+    Azar: {{ v.atrib.azar }} %; adivinar siempre el más frecuente: {{ v.atrib.mayoritaria }} %; el percentil noventa y cinco de {{ v.atrib.permutaciones }} permutaciones: {{ v.atrib.permutacion_p95 }} % (p = {{ v.atrib.p }}).
+  </div>
+  <p class="small">{{ v.atrib.lectura }}</p>
+  <h2>Dos. ¿Los temas detectados coinciden con lo que dice Wikipedia?</h2>
+  <p class="small">{{ v.wiki.metodo }}</p>
+  <table><tr><th>Comediante</th><th>Temas más fuertes en sus transcripts</th><th>Temas más fuertes en su artículo</th><th class="n">ρ</th><th class="n">p</th><th class="n">ρ sin meta</th><th class="n">palabras</th></tr>
+  {% for r in v.wiki.filas %}<tr><td>{{ r.name }}</td><td>{{ r.top_text }}</td><td>{{ r.top_wiki }}</td><td class="n">{{ r.rho }}</td><td class="n">{{ r.p }}</td><td class="n">{{ r.rho7 }}</td><td class="n">{{ r.palabras }}</td></tr>{% endfor %}</table>
+  <p class="small">{{ v.wiki.lectura }}</p>
+  <h2>Tres. ¿Las marcas de risa del transcript coinciden con la risa que mide el audio?</h2>
+  <p class="small">{{ v.marcas.metodo }}</p>
+  <div class="box">{{ v.marcas.resumen }}</div>
+  <table><tr><th>Especial</th><th class="n">marcas/min</th><th class="n">reac./min (audio)</th><th class="n">ρ forma por décimos</th></tr>
+  {% for r in v.marcas.filas %}<tr><td>{{ r.especial }}</td><td class="n">{{ r.marcas_min }}</td><td class="n">{{ r.reac_min }}</td><td class="n">{{ r.rho }}</td></tr>{% endfor %}</table>
+  <p class="small">{{ v.marcas.lectura }}</p>
+</section>
+{% endif %}
+</body>
+</html>
