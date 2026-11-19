@@ -145,6 +145,10 @@ python report/check_numbers.py   # falla si el PDF muestra un número que no est
 - La plantilla no lleva dígitos fijos: todo número sale del JSON ya formateado; si agregas texto con
   números, ponlo en `meta` o el chequeo falla.
 - `validate.py` reescribe el JSON: córrelo después de `build_data.py`, nunca al revés.
+- El PDF es para comediantes, no para estadísticos: la plantilla imprime palabras («muy rápida»,
+  «normal»), no percentiles ni p. Los números técnicos siguen en el JSON (deciden el nivel en
+  `nivel()`: si el intervalo toca la mediana, dice «normal»). Las marcas `[laughter]` no coinciden
+  con el audio (validación 3), así que «palabras entre risas» ya no se calcula.
 - Avast re-firma HTTPS: los scripts que bajan de Wikimedia usan `truststore` (almacén de Windows).
 - Wikimedia limita (429): `fetch_wiki.py` es incremental y reintenta solo lo incompleto; miniaturas de
   330 px (tamaño estándar; otros anchos los bloquea).

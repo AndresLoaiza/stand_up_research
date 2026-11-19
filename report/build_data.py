@@ -24,7 +24,7 @@ sys.path.insert(0, str(ROOT / "audio"))
 
 from analysis import (  # noqa: E402
     DEFAULT_STOPWORDS, build_comedian_corpus, bootstrap_percentile, callbacks, dry_chains, fightin_words,
-    laugh_gaps, load_unified, memory_permutation_p, percentile_of, style_from_blocks, text_blocks, tokenize,
+    load_unified, memory_permutation_p, percentile_of, style_from_blocks, text_blocks, tokenize,
 )
 from analysis.compute_curated_topics import THEMES, score_show, tokenize_for_scoring  # noqa: E402
 from analysis.core import BLOCK, _ES_STOP, _words  # noqa: E402
@@ -56,7 +56,6 @@ STYLE = [  # key, label, unit, decimals, source of the CI
     ("preguntas_1000", "Preguntas", "frases con pregunta por 1000 palabras", 1, "bloques"),
     ("groserias_1000", "Groserías", "por 1000 palabras", 1, "bloques"),
     ("callbacks_10k", "Callbacks", "frases que vuelven 1500+ palabras después, por 10000 palabras", 1, "especiales"),
-    ("tramo_risas", "Palabras entre risas", "mediana entre marcas de risa del transcript; no validada contra el audio", 0, "tramos"),
 ]
 SCALE = {"ttr": 1000}  # TTR shown as distinct words per 1000
 
@@ -75,9 +74,60 @@ READ = {  # (metric, high/low) -> reading. Interpretation, not data: the report 
     ("groserias_1000", "bajo"): "Limpio: el chiste no depende de la grosería. Para robarlo: prueba tu bit más grosero sin una sola; si sigue funcionando, el chiste era bueno.",
     ("callbacks_10k", "alto"): "Vuelve a frases de antes del show: el público premia reconocerlas. Para robarlo: anota tus tres imágenes más fuertes del primer tercio y regresa a una en el cierre.",
     ("callbacks_10k", "bajo"): "Bits autónomos que no se citan entre sí. Para robarlo: es el formato para probar material nuevo, porque el orden importa menos.",
-    ("tramo_risas", "alto"): "Mucho texto entre risas: historias largas que pagan al final. Para robarlo: un tramo sin risa se tolera si la recompensa es grande, pero no encadenes dos.",
-    ("tramo_risas", "bajo"): "Risa cada pocas palabras: densidad de chistes muy alta. Para robarlo: busca un remate o una etiqueta cada dos o tres frases del bit.",
 }
+
+PLAIN = {  # key -> (name for comedians, words from least to most)
+    "palabras_min": ("Velocidad", ["muy lenta", "lenta", "normal", "rápida", "muy rápida"]),
+    "ttr": ("Vocabulario", ["muy repetitivo", "repetitivo", "normal", "variado", "muy variado"]),
+    "largo_frase": ("Largo de las frases", ["muy cortas", "cortas", "normal", "largas", "muy largas"]),
+    "yo_vs_tu": ("¿Habla de sí o al público?", ["casi todo al público", "más al público", "mitad y mitad", "más de sí", "casi todo de sí"]),
+    "preguntas_1000": ("Preguntas", ["casi no pregunta", "pregunta poco", "normal", "pregunta bastante", "pregunta muchísimo"]),
+    "groserias_1000": ("Groserías", ["casi ninguna", "pocas", "normal", "muchas", "muchísimas"]),
+    "callbacks_10k": ("Retoma chistes de antes", ["casi nunca", "poco", "normal", "bastante", "muchísimo"]),
+}
+TOPIC_WORDS = ["casi nada", "poco", "normal", "bastante", "muchísimo"]
+COMPARA = {  # key -> (sentence start when high, when low)
+    "palabras_min": ("Habla más rápido", "Habla más despacio"),
+    "ttr": ("Usa un vocabulario más variado", "Repite más las mismas palabras"),
+    "largo_frase": ("Hace frases más largas", "Hace frases más cortas"),
+    "yo_vs_tu": ("Habla más de sí", "Le habla más al público"),
+    "preguntas_1000": ("Hace más preguntas", "Hace menos preguntas"),
+    "groserias_1000": ("Dice más groserías", "Dice menos groserías"),
+    "callbacks_10k": ("Retoma más chistes de antes", "Retoma menos chistes de antes"),
+}
+
+
+def nivel(p, ci=None) -> int | None:
+    """0..4 = de los que menos .. de los que más. If the uncertainty reaches the middle, it is 'normal'."""
+    if p is None or not np.isfinite(p):
+        return None
+    if ci and ci[0] <= 50 <= ci[1]:
+        return 2
+    return 4 if p >= 90 else 3 if p >= 70 else 0 if p <= 10 else 1 if p <= 30 else 2
+
+
+def de_cada_10(p: float, alto: bool) -> str:
+    k = int(round((p if alto else 100 - p) / 10))
+    return "que todos los demás comediantes" if k >= 10 else f"que {k} de cada 10 comediantes"
+
+
+def topic_name(t: dict) -> str:
+    # validate.py: this lexicon counts profanity (fuck, ass), so in crude comedians it measures language, not sex
+    return t["label"] + (" (cuenta groserías)" if t["id"] == "sex-body" else "")
+
+
+def risa_txt(pc: float) -> str:
+    return "mucha" if pc >= 70 else "poca" if pc <= 30 else "normal"
+
+
+def ritmo_txt(ratio: float) -> str:
+    return "fuerte" if ratio >= 1.15 else "flojo" if ratio <= 0.85 else "parejo"
+
+
+def contagio_txt(mem: float, p: float) -> str:
+    return ("Sí: cuando la sala arranca a reír, sigue riendo un rato" if p < 0.05 and mem > 0
+            else "No se nota: cada momento arranca casi de cero")
+
 
 ES_THEMES = {  # Spanish seed lexicons for the same 8 themes (translation of THEMES, same stem-prefix scoring)
     "family-domestic": ["esposa", "esposo", "marido", "hijo", "hija", "niño", "niña", "mamá", "mami", "madre", "papá",
@@ -100,7 +150,6 @@ ES_THEMES = {  # Spanish seed lexicons for the same 8 themes (translation of THE
                      "trago", "borrach", "alcohol", "gimnasio", "gordo", "gorda", "peso", "dieta", "viejo", "vieja",
                      "edad", "corazón", "ansiedad", "psicólog", "terapia"],
 }
-NO_LESSON = {"tramo_risas"}  # transcript laugh marks did not agree with measured audio (validate.py)
 TOPIC_UNIT = "palabras del tema por cada 1000"
 GREETING = re.compile(r"gracias|thank|buenas noches|good night|aplauso|applause")
 ES_FILLERS = {"entonces", "pues", "bueno", "como", "así", "cierto", "porque", "vez", "ahí", "acá", "allá", "aquí",
@@ -160,7 +209,16 @@ def trim(sent: str, key: str | None = None, max_words: int = 28) -> str:
 def where(title: str, frac: float, runtime) -> str:
     if runtime and np.isfinite(runtime):
         return f"{title}, hacia el minuto {int(round(frac * runtime))}"
-    return f"{title}, al {int(round(frac * 100))} % del texto"
+    return f"{title}, {parte(frac)} del show"
+
+
+def parte(frac: float) -> str:
+    return "al principio" if frac < 1 / 3 else "a la mitad" if frac < 2 / 3 else "al final"
+
+
+def callback_donde(title: str, e: dict) -> str:
+    a, b = parte(e["pos1"]), parte(e["pos2"])
+    return f"{title}: lo dice {a} y lo retoma {b}" if a != b else f"{title}: lo dice y lo retoma {a}, mucho después"
 
 
 # ---------------------------------------------------------------- per-special measurements
@@ -171,7 +229,6 @@ def measure_special(text_raw: str, text_clean: str, lang: str = "en") -> dict:
     return {
         "blocks": text_blocks(text_raw, lang),
         "callbacks": callbacks(text_clean, lang),
-        "gaps": laugh_gaps(text_raw) if lang == "en" else None,
         "topics": {k: score_show(cnt, v, total) for k, v in lex.items()},
         "tokens": len(_words(text_clean)),
     }
@@ -196,13 +253,11 @@ def comedian_metrics(specs: list[dict]) -> dict:
     st["palabras_min"] = sum(w for w, _ in rt) / sum(r for _, r in rt) if rt else np.nan
     tok = sum(s["m"]["tokens"] for s in specs)
     st["callbacks_10k"] = 10000 * sum(s["m"]["callbacks"]["n"] for s in specs) / tok
-    gaps = [g for s in specs if s["m"]["gaps"] for g in s["m"]["gaps"]]
-    st["tramo_risas"] = float(np.median(gaps)) if gaps else np.nan
     # TTR depends on length: below one full block it is not comparable with the corpus
     st["ttr"] = st["ttr"] * SCALE["ttr"] if blocks["tokens"].sum() >= BLOCK else np.nan
     topics = {k: float(np.average([s["m"]["topics"][k] for s in specs], weights=[s["m"]["tokens"] for s in specs]))
               for k in specs[0]["m"]["topics"]}
-    return {"style": st, "topics": topics, "blocks": blocks, "gaps": gaps}
+    return {"style": st, "topics": topics, "blocks": blocks}
 
 
 def ci_for(key: str, data: dict, specs: list[dict], others: list[float], rng):
@@ -214,10 +269,6 @@ def ci_for(key: str, data: dict, specs: list[dict], others: list[float], rng):
         return boot_specials([s["words"] / s["runtime"] for s in rt], [s["runtime"] for s in rt], others, rng)
     if key == "callbacks_10k":
         return boot_specials([s["m"]["callbacks"]["por_10k"] for s in specs], [s["m"]["tokens"] for s in specs], others, rng)
-    if key == "tramo_risas" and len(data["gaps"]) >= 10:
-        g = np.array(data["gaps"])
-        res = [percentile_of(float(np.median(g[rng.integers(0, len(g), len(g))])), others) for _ in range(N_BOOT)]
-        return float(np.percentile(res, 2.5)), float(np.percentile(res, 97.5))
     return None
 
 
@@ -254,6 +305,10 @@ def audio_block(ids: list[str], aud: pd.DataFrame, sala_df: pd.DataFrame, secos:
                          "seco_s": str(c["seco_s"])} for c in ch],
             "recupera_s": f(sr.recupera_mediana_s, 0),
             "shape": shape,
+            "risa": risa_txt(percentile_of(r.reacciones_min, ref["reacciones_min"])),
+            "arranque": ritmo_txt(r.apertura), "final": ritmo_txt(r.cierre),
+            "flojo_min": f((r.peor_decil - 0.5) / 10 * r.minutos, 0) if pd.notna(r.peor_decil) else "—",
+            "contagio": contagio_txt(mem, p),
         })
     return {"especiales": out}
 
@@ -269,27 +324,28 @@ def ref_shape(arco: pd.DataFrame, ref_ids: list[str]) -> list[list[float]]:
 def lessons(style_rows: list[dict], topic_rows: list[dict], n_specials: int, k: int = 3, skip=frozenset()) -> list[dict]:
     cand = []
     for r in style_rows:
-        if r["_pct"] is None or not np.isfinite(r["_pct"]) or r["key"] in NO_LESSON or r["key"] in skip:
+        if r["_pct"] is None or not np.isfinite(r["_pct"]) or r["key"] in skip:
             continue
         lo, hi = r["_ci"] if r["_ci"] else (r["_pct"], r["_pct"])
         if lo >= 70 or hi <= 30 or (r["_ci"] is None and (r["_pct"] >= 85 or r["_pct"] <= 15)):
-            d = "alto" if r["_pct"] >= 50 else "bajo"
+            alto = r["_pct"] >= 50
+            lect, tip = READ[(r["key"], "alto" if alto else "bajo")].split(" Para robarlo: ")
             cand.append((abs(r["_pct"] - 50), {
-                "titulo": r["label"],
-                "dato": f"{r['label']}: {r['valor']} ({r['unidad']}); percentil {r['pct']} del corpus"
-                        + (f", IC 95 % {r['ci_lo']}–{r['ci_hi']}" if r["_ci"] else ", sin intervalo") + ".",
-                "lectura": READ[(r["key"], d)]}))
+                "titulo": PLAIN[r["key"]][0],
+                "dato": f"{COMPARA[r['key']][0 if alto else 1]} {de_cada_10(r['_pct'], alto)}.",
+                "lectura": lect, "tip": tip}))
     top = max(topic_rows, key=lambda t: t["_pct"]) if topic_rows else None
     if top and top["_pct"] >= 85:
         cand.append((top["_pct"] - 50 - 0.5, {
-            "titulo": f"Tema: {top['label']}",
-            "dato": f"{top['label']}: {top['valor']} palabras del tema por 1000; percentil {top['pct']} del corpus.",
-            "lectura": f"Su terreno es «{top['label'].lower()}». Para robarlo: mira en la cita cómo entra al tema; el ángulo personal, no el tema, es lo que hace el chiste."}))
+            "titulo": "Su tema",
+            "dato": f"Habla de {top['label'].lower()} más {de_cada_10(top['_pct'], True)}.",
+            "lectura": f"Su terreno es «{top['label'].lower()}».",
+            "tip": "mira en la cita cómo entra al tema; el ángulo personal, no el tema, es lo que hace el chiste."}))
     cand.sort(key=lambda x: -x[0])
     out = [c for _, c in cand[:k]]
     if n_specials == 1:
         for o in out:
-            o["dato"] += " Rasgo del especial: hay un solo texto."
+            o["dato"] += " Ojo: sale de un solo especial."
     return out
 
 
@@ -345,7 +401,8 @@ def main():
                                "pct": pct(p), "ci_lo": pct(ci[0]) if ci else "—", "ci_hi": pct(ci[1]) if ci else "—",
                                "pct_decada": pct(pdec) if pdec is not None else "—",
                                "_pct": p if np.isfinite(v) else None, "_ci": ci,
-                               "x": p if np.isfinite(p) else None, "x_lo": ci[0] if ci else None, "x_hi": ci[1] if ci else None})
+                               "x": p if np.isfinite(p) else None, "x_lo": ci[0] if ci else None, "x_hi": ci[1] if ci else None,
+                               "nombre": PLAIN[key][0], "simple": PLAIN[key][1][nivel(p, ci)] if np.isfinite(v) else "sin dato"})
         topic_rows = []
         for t in THEMES:
             v = d["topics"][t["id"]]
@@ -354,7 +411,8 @@ def main():
                                [data[x]["topics"][t["id"]] for x in others], rng)
             topic_rows.append({"id": t["id"], "label": t["label"], "unidad": TOPIC_UNIT, "valor": f(v, 1), "pct": pct(p),
                                "ci_lo": pct(ci[0]) if ci else "—", "ci_hi": pct(ci[1]) if ci else "—",
-                               "_pct": p, "x": p, "x_lo": ci[0] if ci else None, "x_hi": ci[1] if ci else None})
+                               "_pct": p, "x": p, "x_lo": ci[0] if ci else None, "x_hi": ci[1] if ci else None,
+                               "nombre": topic_name(t), "simple": TOPIC_WORDS[nivel(p, ci)]})
         # distinctive words: vs everyone else, recurring across specials when there are 2+
         rest = sum((counts[x] for x in others), Counter())
         fw = fightin_words(counts[n], rest, prior)
@@ -371,7 +429,7 @@ def main():
                 hit = next(((x, fr) for x, fr in sentences_of(s["raw"]) if re.search(rf"\b{re.escape(w0)}\b", x.lower())
                             and 6 <= len(x.split()) <= 60), None)
                 if hit:
-                    quotes.append({"tipo": f"Palabra distintiva «{w0}»", "texto": trim(hit[0], w0),
+                    quotes.append({"tipo": f"Usa mucho «{w0}»", "texto": trim(hit[0], w0),
                                    "donde": where(s["title"], hit[1], s["runtime"])})
                     break
         best_t = max(topic_rows, key=lambda t: t["_pct"])
@@ -386,13 +444,13 @@ def main():
                 if h >= 2 and (best is None or h > best[0]):
                     best = (h, x, fr, s)
         if best:
-            quotes.append({"tipo": f"Tema: {best_t['label']}", "texto": trim(best[1]),
+            quotes.append({"tipo": f"Hablando de {best_t['label'].lower()}", "texto": trim(best[1]),
                            "donde": where(best[3]["title"], best[2], best[3]["runtime"])})
         cb = next(((s, e) for s in specs for e in s["m"]["callbacks"]["ejemplos"] if not GREETING.search(e["frase"])), None)
         if cb:
             s, e = cb
-            quotes.append({"tipo": "Callback", "texto": f"«{e['frase']}»",
-                           "donde": f"{s['title']}: aparece al {int(round(100 * e['pos1']))} % y vuelve al {int(round(100 * e['pos2']))} % del texto"})
+            quotes.append({"tipo": "Callback: una frase que vuelve más tarde", "texto": f"«{e['frase']}»",
+                           "donde": callback_donde(s['title'], e)})
 
         w = wiki.get(n, {})
         ys = sorted({int(s["year"]) for s in specs if pd.notna(s["year"])})
@@ -437,7 +495,7 @@ def main():
                          for r in log[log["decision"] == "rechazado"].itertuples()],
             "n1": str(sum(len(specs_by[n]) == 1 for n in names)),
             "bloque": str(BLOCK), "ic": "95 %", "boot": str(N_BOOT), "callback_gap": "1500", "rating_min": "7,0", "rating_max": "8,7",
-            "con_marcas": str(sum(1 for n in names for s in specs_by[n] if s["m"]["gaps"])),
+            "seco_min_s": str(sala.SECO_MIN_S),
             "referentes_audio": str(len(ref_ids)),
             "metricas": [{"label": l, "unidad": u} for _, l, u, _, _ in STYLE],
             "shape_ref": shape_ref,
@@ -514,13 +572,15 @@ def build_members(data, names, aud, sala_df, secos, arco, ref_ids, rng) -> list[
                                "ci_lo": pct(ci[0]) if ci else "—", "ci_hi": pct(ci[1]) if ci else "—",
                                "pct_decada": "—", "rank": str(rank) if rank else "—",
                                "_pct": p if np.isfinite(v) else None, "_ci": ci,
-                               "x": p if np.isfinite(p) else None, "x_lo": ci[0] if ci else None, "x_hi": ci[1] if ci else None})
+                               "x": p if np.isfinite(p) else None, "x_lo": ci[0] if ci else None, "x_hi": ci[1] if ci else None,
+                               "nombre": PLAIN[key][0], "simple": PLAIN[key][1][nivel(p, ci)] if np.isfinite(v) else "sin dato"})
         topic_rows = []
         for t in THEMES:
             v = d["topics"][t["id"]]
             p = percentile_of(v, [data[x]["topics"][t["id"]] for x in names])
             topic_rows.append({"id": t["id"], "label": t["label"], "unidad": TOPIC_UNIT, "valor": f(v, 1), "pct": pct(p), "ci_lo": "—",
-                               "ci_hi": "—", "_pct": p, "x": p, "x_lo": None, "x_hi": None})
+                               "ci_hi": "—", "_pct": p, "x": p, "x_lo": None, "x_hi": None,
+                               "nombre": topic_name(t), "simple": TOPIC_WORDS[nivel(p)]})
         rest = sum((cnt[x] for x in MEMBERS if x != n), Counter())
         fw = fightin_words(cnt[n], rest, prior, alpha0=500, min_count=3)
         fw = fw[fw["z"] > 1.96].head(10)
@@ -529,14 +589,14 @@ def build_members(data, names, aud, sala_df, secos, arco, ref_ids, rng) -> list[
         for wd in [x["palabra"] for x in words[:3]]:
             q = member_quote(specs, wd)
             if q:
-                quotes.append({"tipo": f"Palabra distintiva «{wd}»", **q})
+                quotes.append({"tipo": f"Usa mucho «{wd}»", **q})
             if len(quotes) == 2:
                 break
         cb = next(((s, e) for s in specs for e in s["m"]["callbacks"]["ejemplos"] if not GREETING.search(e["frase"])), None)
         if cb:
             s, e = cb
-            quotes.append({"tipo": "Callback", "texto": f"«{e['frase']}»",
-                           "donde": f"{s['title']}: aparece al {int(round(100 * e['pos1']))} % y vuelve al {int(round(100 * e['pos2']))} % de su texto"})
+            quotes.append({"tipo": "Callback: una frase que vuelve más tarde", "texto": f"«{e['frase']}»",
+                           "donde": callback_donde(s['title'], e)})
         # audio: every format where the member was measured
         fmt_rows = []
         for r in com[com["comediante"] == n].itertuples():
@@ -553,7 +613,9 @@ def build_members(data, names, aud, sala_df, secos, arco, ref_ids, rng) -> list[
                 quiet_rows.append({"show": "Ansioso" if "ansioso" in r.id else "Set en La Korte",
                                    "n": str(int(r.reacciones_fuertes)), "detectado": f(r.detectado_pct, 1),
                                    "caminar": f(r.caminar_proporcion, 2), "caminar_p": f(r.caminar_p_mas_quieto, 3),
-                                   "gesticular": f(r.gesticular_proporcion, 2), "gesticular_p": f(r.gesticular_p_mas_quieto, 3)})
+                                   "gesticular": f(r.gesticular_proporcion, 2), "gesticular_p": f(r.gesticular_p_mas_quieto, 3),
+                                   "camina_txt": "menos que de costumbre (se planta)" if r.caminar_p_mas_quieto < 0.05 else "igual que siempre",
+                                   "gesto_txt": "menos que de costumbre" if r.gesticular_p_mas_quieto < 0.05 else "igual que siempre"})
             # La Korte set has audio but no transcript: its room metrics still belong on the page
             lk = sala_df[sala_df["id"] == "andres-loaiza-0731"].iloc[0]
             sec = secos[secos["id"] == "andres-loaiza-0731"]
@@ -563,7 +625,8 @@ def build_members(data, names, aud, sala_df, secos, arco, ref_ids, rng) -> list[
                           "ventanas": str(len(s_)), "secos_n": str(len(sec)), "secos_hora": f(lk.tramos_secos_hora, 1),
                           "cadenas": [{"desde": f(c["desde_min"], 1), "hasta": f(c["hasta_min"], 1),
                                        "tramos": str(c["tramos"]), "seco_s": str(c["seco_s"])} for c in dry_chains(sec)],
-                          "recupera_s": f(lk.recupera_mediana_s, 0), "nota": "audio, sin transcripción"})
+                          "recupera_s": f(lk.recupera_mediana_s, 0), "contagio": contagio_txt(mem, p),
+                          "nota": "audio, sin transcripción"})
         # Whisper punctuation: sentence length and questions are not comparable with human transcripts
         ls = lessons(style_rows, topic_rows, len(specs), skip={"largo_frase", "preguntas_1000"})
         foto = FOTO_MEMBER.get(n)
@@ -618,7 +681,7 @@ def member_sala(s: dict, sala_df, secos, n) -> dict:
             "secos_n": str(len(dry)), "secos_hora": f(60 * len(dry) / minutes if minutes else np.nan, 1),
             "cadenas": [{"desde": f(c_["desde_min"], 1), "hasta": f(c_["hasta_min"], 1), "tramos": str(c_["tramos"]),
                          "seco_s": str(c_["seco_s"])} for c_ in dry_chains(sec)],
-            "recupera_s": f(float(np.median(rec)), 0) if rec else "—",
+            "recupera_s": f(float(np.median(rec)), 0) if rec else "—", "contagio": contagio_txt(mem, p),
             "nota": "minutos contados desde el inicio de su set" if s["t0"] is not None else ""}
 
 
@@ -636,7 +699,9 @@ def build_annex(aud, sala_df, secos, names, ref_ids) -> list[dict]:
                     "reacciones_pct": pct(percentile_of(r.reacciones_min, ref["reacciones_min"])),
                     "apertura": f(r.apertura, 2), "cierre": f(r.cierre, 2),
                     "secos_hora": f(sr.tramos_secos_hora, 1), "cadenas": str(len(dry_chains(secos[secos["id"] == r.id]))),
-                    "memoria": f(mem, 2), "memoria_p": f(p, 3)})
+                    "memoria": f(mem, 2), "memoria_p": f(p, 3),
+                    "risa": risa_txt(percentile_of(r.reacciones_min, ref["reacciones_min"])),
+                    "arranque": ritmo_txt(r.apertura), "final": ritmo_txt(r.cierre)})
     return out
 
 
@@ -650,12 +715,13 @@ def build_map(comedians, data, names) -> dict:
     P = Xc @ Vt[:2].T
     var = S ** 2 / (S ** 2).sum()
     load = {k: (Vt[0][i], Vt[1][i]) for i, k in enumerate(keys)}
-    lab = {k: l for k, l, *_ in STYLE}
+    lab = {"ttr": "vocabulario variado", "largo_frase": "frases largas", "yo_vs_tu": "hablar de sí",
+           "preguntas_1000": "preguntas", "groserias_1000": "groserías", "callbacks_10k": "callbacks"}
 
     def axis(j):
         hi = sorted(keys, key=lambda k: -load[k][j])[:2]
         lo = sorted(keys, key=lambda k: load[k][j])[:2]
-        return {"mas": " y ".join(lab[k].lower() for k in hi), "menos": " y ".join(lab[k].lower() for k in lo)}
+        return {"mas": " y ".join(lab[k] for k in hi), "menos": " y ".join(lab[k] for k in lo)}
 
     W, H, pad = 100, 92, 6  # SVG viewBox of the map in the template
     sx = lambda v: pad + (v - P[:, 0].min()) / (np.ptp(P[:, 0]) or 1) * (W - 2 * pad)
