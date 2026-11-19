@@ -103,6 +103,16 @@ También entran los shows completos de una sola persona (Ansioso y el set de La 
 integrante en todos sus formatos; ahí el índice no aplica. La sección "La curva de un show" compara
 cualquier show (por defecto Ansioso) contra la franja central de los especiales y lista los décimos flojos.
 
+**Quietud antes del remate** (`audio/quietud.py` -> `df_audio_quietud.parquet`, idea de TIC-TALK): solo
+en shows con una persona en tarima (Ansioso y el set de La Korte). Mide por separado **caminar**
+(centro de caderas) y **gesticular** (muñecas), en largos de torso por segundo, en los 3 s antes de las
+reacciones fuertes (tercio superior por masa) contra momentos al azar a más de 6 s de una reacción.
+Separados a propósito: el movimiento total daba 1,10 (más movimiento) y caminar solo 0,90. Mismo
+criterio que `Analisis_videos/scripts/tictalk.py`, que lo calcula en cada show nuevo con
+`"solo_en_tarima": true`; si se cambia uno, cambiar el otro. Resultados (14 nov 2026): Ansioso caminar
+0,90 (p = 0,32), gesticular 1,03; La Korte caminar 0,80 (p = 0,09), gesticular 0,91. Ninguno
+concluyente. Es correlación, y la reacción llega medio segundo o un segundo después del remate.
+
 Lo que hay que saber antes de concluir algo:
 - **Se mide "reacción" (risa + aplauso), umbral 0,05.** En mezclas de TV la voz del comediante
   domina y YAMNet le da a la risa probabilidades bajas o la llama "aplauso". El umbral de
@@ -116,6 +126,28 @@ Lo que hay que saber antes de concluir algo:
   recalcular con otro umbral sin volver a escuchar todo.
 - Los shows propios son grabaciones de celular o cámara en sala, en español y en formatos
   distintos (panel, juegos, dúo): comparables entre sí, no de igual a igual con un especial de TV.
+
+## Informe por comediante _(nov 2026)_
+
+`report/` genera un PDF de una página por comediante (38 del corpus + 4 de Alta Comedia + anexo de los
+que solo tienen audio + validación). Corpus ampliado: además de los 84 con IMDb, toma de
+`raw_transcripts.parquet` todo especial cuyo título nombra al comediante (`build_comedian_corpus` en
+`analysis/core.py`; el registro de cada decisión queda en `report/emparejamiento.csv`).
+
+```bash
+python report/fetch_wiki.py      # bios Wikidata/Wikipedia + fotos Commons con licencia -> report/wiki_cache.json, report/img/
+python report/build_data.py      # todos los números -> report/report_data.json (N_BOOT=20 para depurar rápido)
+python report/validate.py        # atribución, temas vs Wikipedia, marcas de risa vs YAMNet -> agrega "validacion" al JSON
+python report/render.py          # plantilla Jinja2 -> informe.html -> informe_comediantes.pdf (Chrome headless)
+python report/check_numbers.py   # falla si el PDF muestra un número que no está en report_data.json
+```
+
+- La plantilla no lleva dígitos fijos: todo número sale del JSON ya formateado; si agregas texto con
+  números, ponlo en `meta` o el chequeo falla.
+- `validate.py` reescribe el JSON: córrelo después de `build_data.py`, nunca al revés.
+- Avast re-firma HTTPS: los scripts que bajan de Wikimedia usan `truststore` (almacén de Windows).
+- Wikimedia limita (429): `fetch_wiki.py` es incremental y reintenta solo lo incompleto; miniaturas de
+  330 px (tamaño estándar; otros anchos los bloquea).
 
 ## Conventions and gotchas
 
